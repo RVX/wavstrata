@@ -2,13 +2,17 @@
 
 **A browser-based geological visualization and sonification studio.**
 
-Wavstrata turns terrain surfaces and point clouds into an interactive 3D view and evolving sound. It is designed for classroom exploration: students can load a model, inspect and transform its shape, experiment with sound profiles, and export an audio file with a metadata sidecar.
+Wavstrata turns terrain surfaces and point clouds into an interactive 3D view and evolving sound. It is designed for sound and space exploration: users can load a model, inspect and transform its shape, experiment with sound profiles, and export an audio file with a metadata sidecar.
 
 ![Wavstrata running with the dark ambient drone profile](./wavstrata-screenshot.png)
 
 The screenshot shows the app running with the **Dark Ambient** profile, 18 voices, a 12-cent beating setting, and 82% stereo width.
 
 ## Open the app
+
+### Online version 
+
+[WAVSTRATA](https://rvx.github.io/wavstrata/Wavstrata.html)
 
 ### Try it locally
 
@@ -18,20 +22,9 @@ The screenshot shows the app running with the **Dark Ambient** profile, 18 voice
 
 No build step, package installation, account, or server is required for local use.
 
-### Make it available to students with GitHub Pages
 
-GitHub Pages can serve this static app directly; no backend is needed.
 
-1. Create a GitHub repository and upload `Wavstrata.html`, `README.md`, and `wavstrata-screenshot.png` to the repository root.
-2. In the repository, open **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select the `main` branch and `/ (root)`, then save.
-4. When GitHub Pages finishes publishing, share:
-
-   `https://<github-username>.github.io/<repository-name>/Wavstrata.html`
-
-The page can take a few minutes to appear after the first deployment. Anyone with the link can use it if the repository and Pages site are public. Keep the `.html` filename in the link; the app intentionally remains a single HTML file rather than adding a second `index.html`.
-
-## Classroom workflow
+## Workflow
 
 1. Open a sample preset or load a supported terrain model.
 2. Inspect the surface and adjust position, axis rotations, or crop bounds.
@@ -65,3 +58,21 @@ The metadata sidecar records the audio format, sound settings, model name and tr
 - `Wavstrata.html` — the standalone application.
 - `wavstrata-screenshot.png` — screenshot of the running application.
 - `README.md` — usage and GitHub Pages instructions.
+
+## Contributing
+
+Issues and pull requests are welcome — this is meant to be a small, readable reference implementation for turning 3D scans data into sound, not a polished framework. Feel free to fork it, adapt it for a different scan test, or extend the sonification approach (e.g. pitch-preserving time-stretch, multi-channel stereo mixes, etc.).
+
+## Citation
+
+If this tool is useful in an academic or creative context, a citation or acknowledgment along these lines is appreciated:
+
+    Mazon, V. (2026). Wavstrata Superficies geológicas, metadatos espaciales, sonificación y 
+
+Toolkit [Software].
+
+## License
+
+Licensed under the GNU General Public License v3.0 — see LICENSE for the full text. In short: you are free to use, study, modify, and redistribute this software (including commercially), provided derivative works are also released under the GPL-3.0 and you preserve the copyright/license notices.
+
+Copyright (C) 2026 Victor Mazon.

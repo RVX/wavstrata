@@ -359,9 +359,12 @@
                             <option value="terrain">Terreno · síntesis general</option>
                             <option value="strataDrone">Drone estratigráfico · profundo y lento</option>
                             <option value="darkAmbient">Drone oscuro · armónicos evolutivos</option>
+                            <option value="abyssalDrone">Abismo · subgrave y expansivo</option>
+                            <option value="tectonicPulse">Pulso tectónico · rítmico y disonante</option>
+                            <option value="mineralChoir">Coro mineral · resonante y metálico</option>
                         </select>
                         <p id="profileDescription" class="text-[10px] text-slate-400 leading-relaxed mt-1.5">La forma y elevación de la geometría modulan el perfil sonoro.</p>
-                        <div id="darkDroneControls" class="hidden mt-2 grid grid-cols-3 gap-2 border-t border-studio-border/60 pt-2">
+                        <div id="droneControls" class="hidden mt-2 grid grid-cols-2 gap-2 border-t border-studio-border/60 pt-2">
                             <label class="text-[9px] text-slate-400">Voces
                                 <select id="droneVoiceCount" class="w-full mt-1 bg-studio-bg border border-studio-border rounded p-1.5 text-[10px] text-slate-200">
                                     <option value="6">6 · escaso</option>
@@ -375,6 +378,9 @@
                             </label>
                             <label class="text-[9px] text-slate-400">Anchura <span id="droneWidthValue">72%</span>
                                 <input id="droneWidth" type="range" min="0" max="100" step="1" value="72" class="w-full mt-2" aria-label="Anchura estéreo del drone">
+                            </label>
+                            <label class="text-[9px] text-slate-400">Intensidad <span id="profileIntensityValue">55%</span>
+                                <input id="profileIntensity" type="range" min="0" max="100" step="1" value="55" class="w-full mt-2" aria-label="Intensidad de modulación del perfil">
                             </label>
                         </div>
                     </div>
@@ -675,7 +681,7 @@
 
                 <div class="bg-studio-card p-2.5 rounded-lg space-y-1 border border-studio-border">
                     <h4 class="font-bold text-studio-purple uppercase text-[11px]">Parámetros Extendidos de Audio</h4>
-                    <p>Modifica duraciones desde 3s hasta 60s, elige timbres (Senoidal, Triangular, Sierra, Cuadrada o FM Metálica), asigna escalas de notas y exporta WAV PCM de 16 o 24 bits con un JSON de metadatos de acompañamiento. Eco de Cañón ofrece controles de mezcla, pre-delay y decaimiento. El Drone oscuro permite ajustar 6–24 voces, desafinación y anchura estéreo.</p>
+                    <p>Modifica duraciones desde 3s hasta 60s, elige timbres (Senoidal, Triangular, Sierra, Cuadrada o FM Metálica), asigna escalas de notas y exporta WAV PCM de 16 o 24 bits con un JSON de metadatos de acompañamiento. Eco de Cañón ofrece controles de mezcla, pre-delay y decaimiento. Los perfiles ambientales permiten ajustar voces, desafinación, anchura estéreo e intensidad de modulación.</p>
                 </div>
             </div>
 
@@ -715,6 +721,7 @@
             droneVoiceCount: 12,
             droneDetuneCents: 8,
             droneStereoWidth: 0.72,
+            profileIntensity: 55,
 
             // Web Audio Nodes
             bufferA: null, bufferB: null,
@@ -1370,10 +1377,72 @@
             return voices.map(voice => ({ ...voice, weight: (voice.weight / weightSum) * 0.9 }));
         }
 
+        const ATMOSPHERIC_PROFILES = ['darkAmbient', 'abyssalDrone', 'tectonicPulse', 'mineralChoir'];
+
+        function isAtmosphericProfile(profile) {
+            return ATMOSPHERIC_PROFILES.includes(profile);
+        }
+
+        function getAtmosphericVoices(profile) {
+            if (profile === 'darkAmbient') return getDarkAmbientVoices();
+
+            const ratiosByProfile = {
+                abyssalDrone: [0.25, 0.5, 1, 1.002, 1.5, 2, 2.004, 3],
+                tectonicPulse: [0.5, 1, Math.pow(2, 1 / 12), Math.pow(2, 6 / 12), 1.4983, 2, Math.pow(2, 13 / 12), 3],
+                mineralChoir: [0.5, 1, Math.sqrt(2), 1.5, Math.sqrt(5), 2, Math.sqrt(10), 3, Math.sqrt(17), 4]
+            };
+            const ratios = ratiosByProfile[profile];
+            const count = Math.max(6, Math.min(24, state.droneVoiceCount));
+            const detuneRatio = Math.pow(2, state.droneDetuneCents / 1200);
+            const voices = Array.from({ length: count }, (_, index) => {
+                const detune = index % 3 === 1 ? detuneRatio : index % 3 === 2 ? 1 / detuneRatio : 1;
+                return {
+                    ratio: ratios[index % ratios.length] * Math.pow(2, Math.floor(index / ratios.length)) * detune,
+                    weight: 1 / Math.sqrt(index + 1)
+                };
+            });
+            const weightSum = voices.reduce((sum, voice) => sum + voice.weight, 0);
+            return voices.map(voice => ({ ...voice, weight: (voice.weight / weightSum) * 0.9 }));
+        }
+
+        function getAtmosphericModulation(profile, shape, time, voice) {
+            const intensity = state.profileIntensity / 100;
+            const terrainOffset = shape - 0.5;
+            const motion = 0.25 + intensity * 1.36;
+
+            if (profile === 'darkAmbient') {
+                const rate = 0.025 + voice * 0.007;
+                return {
+                    drift: (Math.sin(2 * Math.PI * rate * time) * 0.2 + terrainOffset * 0.3) * motion,
+                    swell: 0.7 + 0.3 * motion * Math.sin(2 * Math.PI * rate * time * (1.15 + voice * 0.025))
+                };
+            }
+            if (profile === 'abyssalDrone') {
+                return {
+                    drift: (Math.sin(2 * Math.PI * (0.012 + voice * 0.001) * time) * 0.06 + terrainOffset * 0.12) * motion,
+                    swell: 0.82 + 0.18 * Math.sin(2 * Math.PI * (0.018 + voice * 0.001) * time + voice)
+                };
+            }
+            if (profile === 'tectonicPulse') {
+                const pulse = 0.5 + 0.5 * Math.sin(2 * Math.PI * (0.055 + voice * 0.004) * time + voice * 0.7);
+                const depth = 0.2 + intensity * 0.65;
+                return {
+                    drift: (Math.sin(2 * Math.PI * 0.035 * time + voice) * 0.1 + terrainOffset * 0.18) * motion,
+                    swell: 1 - depth + depth * pulse
+                };
+            }
+
+            const rate = 0.02 + voice * 0.002;
+            return {
+                drift: (Math.sin(2 * Math.PI * rate * time + voice) * 0.025 + terrainOffset * 0.04) * motion,
+                swell: 0.82 + 0.18 * Math.sin(2 * Math.PI * rate * time + voice * 1.7)
+            };
+        }
+
         async function generateAudioOptionA() {
             const points = state.transformedVertices, sampleRate = 44100;
             const numSamples = sampleRate * state.duration;
-            const isComplexDrone = state.soundProfile === 'darkAmbient';
+            const isComplexDrone = isAtmosphericProfile(state.soundProfile);
             const buffer = state.audioCtx.createBuffer(isComplexDrone ? 2 : 1, numSamples, sampleRate);
             const channel = buffer.getChannelData(0);
 
@@ -1454,7 +1523,7 @@
                 return buffer;
             }
 
-            if (state.soundProfile === 'darkAmbient') {
+            if (isAtmosphericProfile(state.soundProfile)) {
                 let minElevation = Infinity, maxElevation = -Infinity;
                 for (let i = 0; i < rawAmps.length; i++) {
                     minElevation = Math.min(minElevation, rawAmps[i]);
@@ -1469,13 +1538,13 @@
                     const elevation = rawAmps[low] + (rawAmps[high] - rawAmps[low]) * blend;
                     return Math.max(0, Math.min(1, (elevation - minElevation) / elevationRange));
                 };
-                const voices = getDarkAmbientVoices();
+                const voices = getAtmosphericVoices(state.soundProfile);
                 const OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
                 if (!OfflineAudioContext) throw new Error('El navegador no admite OfflineAudioContext.');
                 const offlineContext = new OfflineAudioContext(2, numSamples, sampleRate);
                 const masterGain = offlineContext.createGain();
-                const attack = Math.min(6, state.duration / 4);
-                const release = Math.min(8, state.duration / 4);
+                const attack = Math.min(state.soundProfile === 'tectonicPulse' ? 2 : 6, state.duration / 4);
+                const release = Math.min(state.soundProfile === 'abyssalDrone' ? 10 : 8, state.duration / 4);
                 masterGain.gain.setValueAtTime(0, 0);
                 masterGain.gain.linearRampToValueAtTime(0.85, attack);
                 masterGain.gain.setValueAtTime(0.85, Math.max(attack, state.duration - release));
@@ -1497,13 +1566,12 @@
                         const time = progress * state.duration;
                         const voicePosition = progress + voice * 0.071;
                         const elevation = profileAt(voicePosition);
-                        const slowTerrain = profileAt(voicePosition + 0.19) - 0.5;
-                        const lfoRate = 0.025 + voice * 0.007;
-                        const drift = Math.sin(2 * Math.PI * lfoRate * time) * 0.2 + slowTerrain * 0.3;
+                        const terrainShape = (elevation + profileAt(voicePosition + 0.19)) * 0.5;
+                        const modulation = getAtmosphericModulation(state.soundProfile, terrainShape, time, voice);
                         const frequency = baseFreq * voices[voice].ratio
-                            * Math.pow(2, (drift + (elevation - 0.5) * 0.45) / 12);
-                        const swell = 0.7 + 0.3 * Math.sin(2 * Math.PI * lfoRate * time * (1.15 + voice * 0.025));
-                        const level = voices[voice].weight * (0.2 + elevation * 0.8) * swell * 1.1;
+                            * Math.pow(2, (modulation.drift + (elevation - 0.5) * 0.45) / 12);
+                        const level = voices[voice].weight * (0.2 + elevation * 0.8) * modulation.swell
+                            * (state.soundProfile === 'darkAmbient' ? 1.1 : 1);
 
                         if (frame === 0) {
                             oscillator.frequency.setValueAtTime(frequency, time);
@@ -1566,10 +1634,10 @@
         async function generateAudioOptionB() {
             const points = state.transformedVertices, sampleRate = 44100;
             const numSamples = sampleRate * state.duration;
-            if (points.length === 0) return state.audioCtx.createBuffer(state.soundProfile === 'darkAmbient' ? 2 : 1, numSamples, sampleRate);
+            if (points.length === 0) return state.audioCtx.createBuffer(isAtmosphericProfile(state.soundProfile) ? 2 : 1, numSamples, sampleRate);
 
             const numBins = parseInt(state.optionBRes);
-            const numTimeSteps = state.soundProfile === 'darkAmbient' ? 256 : 100;
+            const numTimeSteps = isAtmosphericProfile(state.soundProfile) ? 256 : 100;
             const grid = Array.from({ length: numBins }, () => new Float32Array(numTimeSteps));
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             let minZ = Infinity, maxZ = -Infinity;
@@ -1598,20 +1666,20 @@
             const baseFreq = parseFloat(state.basePitch);
             const OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
             if (!OfflineAudioContext) throw new Error('El navegador no admite OfflineAudioContext.');
-            const offlineContext = new OfflineAudioContext(state.soundProfile === 'darkAmbient' ? 2 : 1, numSamples, sampleRate);
+            const offlineContext = new OfflineAudioContext(isAtmosphericProfile(state.soundProfile) ? 2 : 1, numSamples, sampleRate);
             const masterGain = offlineContext.createGain();
-            const isDroneProfile = state.soundProfile === 'strataDrone' || state.soundProfile === 'darkAmbient';
+            const isDroneProfile = state.soundProfile === 'strataDrone' || isAtmosphericProfile(state.soundProfile);
             masterGain.gain.setValueAtTime(isDroneProfile ? 0 : 1, 0);
             if (isDroneProfile) {
-                const attack = Math.min(state.soundProfile === 'darkAmbient' ? 6 : 2.5, state.duration / 4);
-                const release = Math.min(state.soundProfile === 'darkAmbient' ? 8 : 3, state.duration / 4);
+                const attack = Math.min(state.soundProfile === 'abyssalDrone' ? 8 : state.soundProfile === 'tectonicPulse' ? 2 : state.soundProfile === 'darkAmbient' ? 6 : 2.5, state.duration / 4);
+                const release = Math.min(state.soundProfile === 'abyssalDrone' ? 10 : state.soundProfile === 'darkAmbient' ? 8 : 3, state.duration / 4);
                 masterGain.gain.linearRampToValueAtTime(0.85, attack);
                 masterGain.gain.setValueAtTime(0.85, Math.max(attack, state.duration - release));
                 masterGain.gain.linearRampToValueAtTime(0, state.duration);
             }
             masterGain.connect(offlineContext.destination);
-            if (state.soundProfile === 'darkAmbient') {
-                const voices = getDarkAmbientVoices();
+            if (isAtmosphericProfile(state.soundProfile)) {
+                const voices = getAtmosphericVoices(state.soundProfile);
                 for (let voice = 0; voice < voices.length; voice++) {
                     const oscillator = offlineContext.createOscillator();
                     const voiceGain = offlineContext.createGain();
@@ -1628,9 +1696,10 @@
                         const elevation = grid[band][t];
                         const neighboringElevation = grid[Math.min(numBins - 1, band + 1)][t];
                         const shape = (elevation + neighboringElevation) * 0.5;
-                        const drift = ((shape - 0.5) * 0.65 + Math.sin(t * 0.11 + voice) * 0.12) / 12;
-                        const frequency = baseFreq * voices[voice].ratio * Math.pow(2, drift);
-                        const level = voices[voice].weight * (0.3 + shape * 0.7);
+                        const modulation = getAtmosphericModulation(state.soundProfile, shape, time, voice);
+                        const frequency = baseFreq * voices[voice].ratio * Math.pow(2, (modulation.drift + (shape - 0.5) * 0.65) / 12);
+                        const level = voices[voice].weight * (0.3 + shape * 0.7) * modulation.swell
+                            * (state.soundProfile === 'darkAmbient' ? 1.1 : 1);
                         oscillator.frequency.linearRampToValueAtTime(frequency, time);
                         voiceGain.gain.linearRampToValueAtTime(level, time);
                         if ((t + 1) % 8 === 0) {
@@ -1878,9 +1947,11 @@
             state.droneVoiceCount = parseInt(document.getElementById('droneVoiceCount').value, 10);
             state.droneDetuneCents = parseInt(document.getElementById('droneDetune').value, 10);
             state.droneStereoWidth = parseInt(document.getElementById('droneWidth').value, 10) / 100;
+            state.profileIntensity = parseInt(document.getElementById('profileIntensity').value, 10);
             document.getElementById('droneDetuneValue').textContent = `${state.droneDetuneCents}¢`;
             document.getElementById('droneWidthValue').textContent = `${Math.round(state.droneStereoWidth * 100)}%`;
-            document.getElementById('darkDroneControls').classList.toggle('hidden', state.soundProfile !== 'darkAmbient');
+            document.getElementById('profileIntensityValue').textContent = `${state.profileIntensity}%`;
+            document.getElementById('droneControls').classList.toggle('hidden', !isAtmosphericProfile(state.soundProfile));
             document.getElementById('playerTotalTime').textContent = formatTime(state.duration);
         }
 
@@ -1952,6 +2023,7 @@
                     durationSeconds: buffer.duration,
                     synthesisOption: state.activeTab,
                     profile: state.soundProfile,
+                    profileIntensity: state.profileIntensity,
                     basePitchHz: state.basePitch,
                     waveform: state.waveform,
                     scale: state.scale,
@@ -1959,10 +2031,11 @@
                     optionASmoothing: state.optionASmooth,
                     optionBSpatialResolution: state.optionBRes
                 },
-                drone: state.soundProfile === 'darkAmbient' ? {
+                drone: isAtmosphericProfile(state.soundProfile) ? {
                     voices: state.droneVoiceCount,
                     detuneCents: state.droneDetuneCents,
-                    stereoWidth: state.droneStereoWidth
+                    stereoWidth: state.droneStereoWidth,
+                    modulationIntensity: state.profileIntensity
                 } : null,
                 reverb: {
                     enabled: state.reverbEnabled,
@@ -2181,7 +2254,7 @@
 
             document.getElementById('soundProfile').addEventListener('change', (event) => {
                 const profile = event.target.value;
-                const controlIds = ['paramDuration', 'paramBasePitch', 'paramWaveform', 'paramScale', 'paramEnvelope', 'paramOptionASmooth', 'paramOptionBRes', 'droneVoiceCount', 'droneDetune', 'droneWidth'];
+                const controlIds = ['paramDuration', 'paramBasePitch', 'paramWaveform', 'paramScale', 'paramEnvelope', 'paramOptionASmooth', 'paramOptionBRes', 'droneVoiceCount', 'droneDetune', 'droneWidth', 'profileIntensity'];
                 const description = document.getElementById('profileDescription');
                 const previousProfile = state.soundProfile;
                 state.profileSettings[previousProfile] = Object.fromEntries(controlIds.map(id => [id, document.getElementById(id).value]));
@@ -2191,10 +2264,15 @@
                     controlIds.forEach(id => {
                         document.getElementById(id).value = savedSettings[id];
                     });
-                } else if (profile === 'strataDrone' || profile === 'darkAmbient') {
-                    const defaults = profile === 'strataDrone'
-                        ? { duration: '30', basePitch: '55', waveform: 'sine', scale: 'pentatonic', envelope: 'drone', smoothing: '8', harmonics: '64', voices: '12', detune: '8', width: '72' }
-                        : { duration: '45', basePitch: '55', waveform: 'sine', scale: 'continuous', envelope: 'drone', smoothing: '8', harmonics: '128', voices: '12', detune: '8', width: '72' };
+                } else if (profile !== 'terrain') {
+                    const defaultsByProfile = {
+                        strataDrone: { duration: '30', basePitch: '55', waveform: 'sine', scale: 'pentatonic', envelope: 'drone', smoothing: '8', harmonics: '64', voices: '12', detune: '8', width: '72', intensity: '45' },
+                        darkAmbient: { duration: '45', basePitch: '55', waveform: 'sine', scale: 'continuous', envelope: 'drone', smoothing: '8', harmonics: '128', voices: '12', detune: '8', width: '72', intensity: '55' },
+                        abyssalDrone: { duration: '45', basePitch: '55', waveform: 'sine', scale: 'continuous', envelope: 'drone', smoothing: '12', harmonics: '64', voices: '12', detune: '3', width: '88', intensity: '35' },
+                        tectonicPulse: { duration: '30', basePitch: '55', waveform: 'sine', scale: 'chromatic', envelope: 'drone', smoothing: '3', harmonics: '128', voices: '12', detune: '18', width: '65', intensity: '75' },
+                        mineralChoir: { duration: '30', basePitch: '110', waveform: 'sine', scale: 'harmonics', envelope: 'drone', smoothing: '8', harmonics: '128', voices: '12', detune: '6', width: '76', intensity: '45' }
+                    };
+                    const defaults = defaultsByProfile[profile];
                     document.getElementById('paramDuration').value = defaults.duration;
                     document.getElementById('paramBasePitch').value = defaults.basePitch;
                     document.getElementById('paramWaveform').value = defaults.waveform;
@@ -2205,17 +2283,20 @@
                     document.getElementById('droneVoiceCount').value = defaults.voices;
                     document.getElementById('droneDetune').value = defaults.detune;
                     document.getElementById('droneWidth').value = defaults.width;
+                    document.getElementById('profileIntensity').value = defaults.intensity;
                 }
 
-                if (profile === 'strataDrone') {
-                    description.textContent = 'El relieve modula un drone subgrave en capas, con deriva lenta, armónicos suaves y fades largos.';
-                } else if (profile === 'darkAmbient') {
-                    description.textContent = 'Ajusta el número de voces, los batimientos y la anchura estéreo. La geometría anima armónicos y afinación en una textura oscura y evolutiva.';
-                } else {
-                    description.textContent = 'La forma y elevación de la geometría modulan el perfil sonoro.';
-                }
+                const profileDescriptions = {
+                    terrain: 'La forma y elevación de la geometría modulan el perfil sonoro.',
+                    strataDrone: 'El relieve modula un drone subgrave en capas, con deriva lenta, armónicos suaves y fades largos.',
+                    darkAmbient: 'Una nube de armónicos lentos y batimientos evoluciona con el relieve; ajusta voces, desafinación, anchura e intensidad.',
+                    abyssalDrone: 'Subgraves sostenidos, parciales de octava y un movimiento tectónico casi imperceptible crean una atmósfera profunda.',
+                    tectonicPulse: 'Pulsos lentos, intervalos disonantes y cambios de relieve generan tensión y oleadas rítmicas.',
+                    mineralChoir: 'Parciales resonantes e inarmónicos forman un coro mineral brillante, con evolución espacial suave.'
+                };
+                description.textContent = profileDescriptions[profile];
 
-                const isComplexDrone = profile === 'darkAmbient';
+                const isComplexDrone = isAtmosphericProfile(profile);
                 document.getElementById('optionBLabel').textContent = isComplexDrone
                     ? 'Opción B: Resolución espacial'
                     : 'Opción B: Armónicos';
@@ -2229,15 +2310,13 @@
                 processSonification();
             });
 
-            ['droneVoiceCount', 'droneDetune', 'droneWidth'].forEach(id => {
+            ['droneVoiceCount', 'droneDetune', 'droneWidth', 'profileIntensity'].forEach(id => {
                 document.getElementById(id).addEventListener('input', () => {
                     readAudioSettings();
-                    state.profileSettings.darkAmbient = {
-                        ...state.profileSettings.darkAmbient,
-                        droneVoiceCount: String(state.droneVoiceCount),
-                        droneDetune: String(state.droneDetuneCents),
-                        droneWidth: String(Math.round(state.droneStereoWidth * 100))
-                    };
+                    state.profileSettings[state.soundProfile] = Object.fromEntries(
+                        ['paramDuration', 'paramBasePitch', 'paramWaveform', 'paramScale', 'paramEnvelope', 'paramOptionASmooth', 'paramOptionBRes', 'droneVoiceCount', 'droneDetune', 'droneWidth', 'profileIntensity']
+                            .map(controlId => [controlId, document.getElementById(controlId).value])
+                    );
                     scheduleSonification();
                 });
             });
