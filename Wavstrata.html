@@ -1,0 +1,2317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#160d09">
+    <meta name="description" content="Wavstrata — estudio geológico 3D y sonificación de datos de terreno.">
+    <title>Wavstrata — Geologic Sonification Studio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js, OrbitControls & OBJ/MTL/STL Loaders -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        studio: {
+                            bg: '#100906',
+                            panel: '#100906',
+                            card: '#100906',
+                            border: '#493021',
+                            cyan: '#e8a24b',
+                            amber: '#f07836',
+                            purple: '#bd4b35',
+                            accent: '#a9472c',
+                            rose: '#f0c05a'
+                        },
+                        slate: {
+                            50: '#f7eee2',
+                            100: '#ead9c3',
+                            200: '#d7bea0',
+                            300: '#bd9d7d',
+                            400: '#987a61',
+                            500: '#705642',
+                            600: '#523c2d',
+                            700: '#39281e',
+                            800: '#291b14',
+                            900: '#1d120d',
+                            950: '#120a07'
+                        },
+                        cyan: { 400: '#f3b45e', 500: '#e89b42', 600: '#c97932' },
+                        amber: { 300: '#f5cc6d', 400: '#f0b948', 500: '#df9832' },
+                        emerald: { 400: '#b69a5c', 500: '#987643' },
+                        rose: { 400: '#dc6846', 500: '#bd4b35' }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1a100b; }
+        ::-webkit-scrollbar-thumb { background: #493021; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #e8a24b; }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #493021;
+            height: 4px;
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #e8a24b;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(232,162,75,0.45);
+            transition: all 0.1s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+            background: #ffffff;
+        }
+
+        .glow-cyan { box-shadow: 0 0 15px rgba(232, 162, 75, 0.22); }
+        .glow-purple { box-shadow: 0 0 15px rgba(189, 75, 53, 0.25); }
+        canvas { display: block; }
+        body { background: radial-gradient(ellipse at 75% 35%, #25140e 0%, #100906 62%); }
+        .studio-mark { width: 42px; height: 42px; flex: none; }
+        .metadata-input { width: 100%; min-width: 0; color: #f1dfc7; background: #120a07; border: 1px solid #493021; border-radius: .4rem; padding: .45rem .55rem; font-size: .7rem; }
+        .metadata-input:focus { outline: 2px solid #e8a24b; outline-offset: 1px; }
+        .transform-nudge, .transform-turn { color: #d6c2aa; background: #120a07; border: 1px solid #493021; border-radius: .3rem; min-width: 1.25rem; padding: .1rem .2rem; font-size: .6rem; line-height: 1rem; }
+        .transform-nudge:hover, .transform-turn:hover { color: #f1b44d; border-color: #e8a24b; }
+        #threeContainer canvas { touch-action: none; }
+        @media (max-width: 767px) {
+            body.h-screen { height: auto; min-height: 100vh; overflow: auto; }
+            body .app-workspace { display: block; overflow: visible; }
+            body .app-controls { width: 100%; max-height: none; }
+            body .app-main { min-height: 1100px; }
+            body .viewer-panel, body .audio-panel { height: 560px; }
+            header { flex-wrap: wrap; gap: .7rem; }
+            .header-status { display: none; }
+        }
+    </style>
+</head>
+<body class="bg-studio-bg text-slate-200 font-sans h-screen flex flex-col overflow-hidden selection:bg-studio-cyan selection:text-black">
+
+    <!-- TOP HEADER -->
+    <header class="bg-studio-panel/95 border-b border-studio-border px-5 py-2.5 flex items-center justify-between shrink-0 z-10">
+        <div class="flex items-center gap-3">
+            <svg class="studio-mark" viewBox="0 0 48 48" role="img" aria-label="Wavstrata seismic strata mark">
+                <defs><linearGradient id="strataGlow" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f0b948"/><stop offset="1" stop-color="#bd4b35"/></linearGradient></defs>
+                <rect x="1" y="1" width="46" height="46" rx="12" fill="#26170f" stroke="#69452d"/>
+                <path d="M8 14c6-3 10 4 16 1s10-2 16 1M8 21c6-3 10 4 16 1s10-2 16 1M8 28c6-3 10 4 16 1s10-2 16 1M8 35c6-3 10 4 16 1s10-2 16 1" fill="none" stroke="url(#strataGlow)" stroke-width="2.4" stroke-linecap="round"/>
+                <path d="M24 7v7m0-7-3 3m3-3 3 3M24 41v-7m0 7-3-3m3 3 3-3" fill="none" stroke="#e8a24b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+                <h1 class="font-bold text-sm md:text-base tracking-wide text-white flex items-center gap-2">
+                    Wavstrata
+                    <span class="text-[10px] bg-studio-amber/10 text-studio-amber border border-studio-amber/30 px-2 py-0.5 rounded font-mono">GEO / AUDIO</span>
+                </h1>
+                <p class="text-[11px] text-slate-400 hidden sm:block">Superficies geológicas · metadatos espaciales · sonificación</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="header-status hidden md:flex items-center gap-2 bg-studio-card px-3 py-1 rounded-lg border border-studio-border text-xs">
+                <span class="text-slate-400">Formatos:</span>
+                <span class="text-studio-cyan font-mono font-semibold">OBJ · STL · PLY · XYZ</span>
+            </div>
+
+            <button id="btnHelp" class="bg-studio-card hover:bg-studio-border text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium border border-studio-border transition flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-question text-studio-cyan"></i> Guía
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN STUDIO WORKSPACE -->
+    <div class="app-workspace flex-1 flex overflow-hidden">
+
+        <!-- LEFT PANEL: CONTROLS & PIPELINE -->
+        <aside class="app-controls w-80 md:w-96 bg-studio-panel border-r border-studio-border flex flex-col shrink-0 overflow-y-auto">
+            
+            <!-- SECTION 1: IMPORT & PRESETS -->
+            <div class="p-3 border-b border-studio-border space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-studio-cyan flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-import"></i> 1. Importar Malla / Geometría
+                    </span>
+                    <span class="text-[10px] text-slate-400 font-mono" id="modelInfoTag">3,600 Vértices</span>
+                </div>
+
+                <!-- Multi-file Dropzone -->
+                <div id="dropZone" class="border-2 border-dashed border-studio-border hover:border-studio-cyan/60 bg-studio-card/50 hover:bg-studio-card transition p-2.5 rounded-xl text-center cursor-pointer group">
+                    <input type="file" id="fileInput" class="hidden" multiple accept=".obj,.mtl,.jpg,.png,.ply,.stl,.xyz">
+                    <i class="fa-solid fa-cloud-arrow-up text-lg text-slate-400 group-hover:text-studio-cyan transition mb-0.5"></i>
+                    <p class="text-xs font-medium text-slate-300">Arrastra archivos (.OBJ, .MTL, .STL, .PLY ASCII, .XYZ)</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">OBJ / STL conserva triángulos · PLY / XYZ se muestra como nube de puntos</p>
+                    <p id="fileStatus" class="mt-1 min-h-4 text-[10px] text-studio-amber" aria-live="polite"></p>
+                </div>
+
+                <!-- Presets -->
+                <div>
+                    <label class="text-[10px] font-semibold text-slate-400 block mb-1">Preajustes Geológicos Proposicionales:</label>
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <button class="demo-btn bg-studio-card hover:bg-studio-cyan/10 hover:border-studio-cyan/40 border border-studio-border text-slate-300 p-1.5 rounded-lg text-xs text-left transition flex items-center gap-1.5" data-preset="strata">
+                            <i class="fa-solid fa-layer-group text-amber-400"></i> Estrato Rocoso
+                        </button>
+                        <button class="demo-btn bg-studio-card hover:bg-studio-cyan/10 hover:border-studio-cyan/40 border border-studio-border text-slate-300 p-1.5 rounded-lg text-xs text-left transition flex items-center gap-1.5" data-preset="crater">
+                            <i class="fa-solid fa-circle-notch text-rose-400"></i> Cráter Volcánico
+                        </button>
+                        <button class="demo-btn bg-studio-card hover:bg-studio-cyan/10 hover:border-studio-cyan/40 border border-studio-border text-slate-300 p-1.5 rounded-lg text-xs text-left transition flex items-center gap-1.5" data-preset="basalt">
+                            <i class="fa-solid fa-cubes text-cyan-400"></i> Basalto Hexagonal
+                        </button>
+                        <button class="demo-btn bg-studio-card hover:bg-studio-cyan/10 hover:border-studio-cyan/40 border border-studio-border text-slate-300 p-1.5 rounded-lg text-xs text-left transition flex items-center gap-1.5" data-preset="canyon">
+                            <i class="fa-solid fa-water-lower text-emerald-400"></i> Gran Cañón
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <details class="border-b border-studio-border">
+                <summary class="p-3 cursor-pointer text-xs font-bold uppercase tracking-wider text-studio-amber">
+                    <i class="fa-solid fa-location-dot mr-1.5"></i>                     Metadatos del sitio y levantamiento
+                </summary>
+                <div class="px-3 pb-3 space-y-2">
+                    <p class="text-[10px] leading-relaxed text-slate-400">Ingresa la ubicación y la fuente del levantamiento. Las coordenadas son descriptivas y no se infieren de la malla.</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="text-[10px] text-slate-400">Latitud (°)<input id="metaLatitude" class="metadata-input mt-1" type="number" step="any" min="-90" max="90" placeholder="-16.50"></label>
+                        <label class="text-[10px] text-slate-400">Longitud (°)<input id="metaLongitude" class="metadata-input mt-1" type="number" step="any" min="-180" max="180" placeholder="-68.15"></label>
+                        <label class="text-[10px] text-slate-400">Altitud<input id="metaAltitude" class="metadata-input mt-1" type="number" step="any" placeholder="p. ej. 3650"></label>
+                        <label class="text-[10px] text-slate-400">Unidad de altitud<select id="metaAltitudeUnit" class="metadata-input mt-1"><option value="m">m</option><option value="ft">ft</option></select></label>
+                        <label class="text-[10px] text-slate-400">Sistema de coordenadas<input id="metaCrs" class="metadata-input mt-1" value="WGS 84 (EPSG:4326)"></label>
+                        <label class="text-[10px] text-slate-400">Datum vertical<input id="metaDatum" class="metadata-input mt-1" placeholder="p. ej. EGM96"></label>
+                        <label class="text-[10px] text-slate-400">Sitio / ID de campaña<input id="metaSite" class="metadata-input mt-1" placeholder="Nombre o ID"></label>
+                        <label class="text-[10px] text-slate-400">Fecha de adquisición<input id="metaDate" class="metadata-input mt-1" type="date"></label>
+                    </div>
+                    <label class="block text-[10px] text-slate-400">Fuente / instrumento<input id="metaSource" class="metadata-input mt-1" placeholder="Campaña, instrumento o archivo de origen"></label>
+                    <div class="flex items-center justify-between gap-2">
+                        <span id="metadataStatus" class="text-[10px] text-slate-500" aria-live="polite">Los metadatos se guardan en este navegador.</span>
+                        <button id="btnExportMetadata" type="button" class="shrink-0 rounded border border-studio-border bg-studio-card px-2 py-1 text-[10px] text-studio-cyan hover:border-studio-cyan">Exportar JSON</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- SECTION 2: TRANSFORMS & ISOLATION BOX -->
+            <div class="p-3 border-b border-studio-border space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-studio-amber flex items-center gap-1.5">
+                        <i class="fa-solid fa-compass"></i> 2. Posición, Rotación y Recorte
+                    </span>
+                    <button id="btnResetTransform" class="text-[10px] text-slate-400 hover:text-white underline">Restablecer</button>
+                </div>
+
+                <!-- Position / Shift translation -->
+                <div class="space-y-1 bg-studio-card p-2 rounded-xl border border-studio-border">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-300 font-medium">Posición 3D (Shift + Arrastrar)</span>
+                        <span class="font-mono text-[10px] text-studio-cyan" id="posVal">X:0 Y:0 Z:0</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <div>
+                            <span class="text-[9px] text-slate-400 block text-center">Pos X</span>
+                            <div class="flex items-center gap-1"><button type="button" class="transform-nudge" data-pos-axis="X" data-pos-direction="-1" aria-label="Mover X negativo">−</button><input type="range" id="posX" min="-3" max="3" step="0.01" value="0" class="w-full"><button type="button" class="transform-nudge" data-pos-axis="X" data-pos-direction="1" aria-label="Mover X positivo">+</button></div>
+                        </div>
+                        <div>
+                            <span class="text-[9px] text-slate-400 block text-center">Pos Y</span>
+                            <div class="flex items-center gap-1"><button type="button" class="transform-nudge" data-pos-axis="Y" data-pos-direction="-1" aria-label="Mover Y negativo">−</button><input type="range" id="posY" min="-3" max="3" step="0.01" value="0" class="w-full"><button type="button" class="transform-nudge" data-pos-axis="Y" data-pos-direction="1" aria-label="Mover Y positivo">+</button></div>
+                        </div>
+                        <div>
+                            <span class="text-[9px] text-slate-400 block text-center">Pos Z</span>
+                            <div class="flex items-center gap-1"><button type="button" class="transform-nudge" data-pos-axis="Z" data-pos-direction="-1" aria-label="Mover Z negativo">−</button><input type="range" id="posZ" min="-3" max="3" step="0.01" value="0" class="w-full"><button type="button" class="transform-nudge" data-pos-axis="Z" data-pos-direction="1" aria-label="Mover Z positivo">+</button></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end gap-1.5 text-[9px] text-slate-400">
+                        <label for="moveStep">Incremento de movimiento</label>
+                        <select id="moveStep" class="bg-studio-bg border border-studio-border rounded px-1.5 py-1 text-slate-200">
+                            <option value="0.05">Fino · 0.05</option>
+                            <option value="0.25" selected>Medio · 0.25</option>
+                            <option value="0.5">Amplio · 0.5</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Rotation -->
+                <div class="space-y-1 bg-studio-card p-2 rounded-xl border border-studio-border">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-300 font-medium">Rotación 3D (Alinear Estratos)</span>
+                        <span class="font-mono text-[10px] text-studio-amber" id="rotVal">X:0° Y:0° Z:0°</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <div>
+                            <span class="text-[9px] text-slate-400 block text-center">Rot X</span>
+                            <input type="range" id="rotX" min="-180" max="180" value="0" class="w-full">
+                        </div>
+                        <div>
+                            <span class="text-[9px] text-slate-400 block text-center">Rot Y</span>
+                            <input type="range" id="rotY" min="-180" max="180" value="0" class="w-full">
+                        </div>
+                        <div>
+                            <span class="text-[9px] text-slate-400 block text-center">Rot Z</span>
+                            <input type="range" id="rotZ" min="-180" max="180" value="0" class="w-full">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5 mt-1">
+                        <div class="grid grid-cols-3 gap-1">
+                            <button type="button" class="transform-turn" data-rot-axis="X" data-rot-delta="-180">−180°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="X" data-rot-delta="-90">−90°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="X" data-rot-delta="-45">−45°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="X" data-rot-delta="45">+45°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="X" data-rot-delta="90">+90°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="X" data-rot-delta="180">+180°</button>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1">
+                            <button type="button" class="transform-turn" data-rot-axis="Y" data-rot-delta="-180">−180°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Y" data-rot-delta="-90">−90°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Y" data-rot-delta="-45">−45°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Y" data-rot-delta="45">+45°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Y" data-rot-delta="90">+90°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Y" data-rot-delta="180">+180°</button>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1">
+                            <button type="button" class="transform-turn" data-rot-axis="Z" data-rot-delta="-180">−180°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Z" data-rot-delta="-90">−90°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Z" data-rot-delta="-45">−45°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Z" data-rot-delta="45">+45°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Z" data-rot-delta="90">+90°</button>
+                            <button type="button" class="transform-turn" data-rot-axis="Z" data-rot-delta="180">+180°</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 text-center text-[8px] text-slate-500"><span>Giros eje X</span><span>Giros eje Y</span><span>Giros eje Z</span></div>
+                </div>
+
+                <!-- Bounding Box Cropping -->
+                <div class="space-y-1.5 bg-studio-card p-2 rounded-xl border border-studio-border">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-300 font-medium">Caja Delimitadora de Aislamiento</span>
+                        <span class="text-[10px] text-studio-cyan font-mono" id="slicePlaneLabel">Recorte Activo</span>
+                    </div>
+
+                    <!-- Crop X -->
+                    <div class="space-y-0.5">
+                        <div class="flex justify-between text-[9px] text-slate-400 font-mono">
+                            <span>Límites X</span>
+                            <span id="cropXVal">-1.5 a 1.5</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="range" id="cropXMin" min="-2.5" max="2.5" step="0.05" value="-1.5" class="w-full">
+                            <input type="range" id="cropXMax" min="-2.5" max="2.5" step="0.05" value="1.5" class="w-full">
+                        </div>
+                    </div>
+
+                    <!-- Crop Y -->
+                    <div class="space-y-0.5">
+                        <div class="flex justify-between text-[9px] text-slate-400 font-mono">
+                            <span>Límites Y</span>
+                            <span id="cropYVal">-1.5 a 1.5</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="range" id="cropYMin" min="-2.5" max="2.5" step="0.05" value="-1.5" class="w-full">
+                            <input type="range" id="cropYMax" min="-2.5" max="2.5" step="0.05" value="1.5" class="w-full">
+                        </div>
+                    </div>
+
+                    <!-- Crop Z -->
+                    <div class="space-y-0.5">
+                        <div class="flex justify-between text-[9px] text-slate-400 font-mono">
+                            <span>Límites Z (Elevación)</span>
+                            <span id="cropZVal">-1.5 a 1.5</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="range" id="cropZMin" min="-2.5" max="2.5" step="0.05" value="-1.5" class="w-full">
+                            <input type="range" id="cropZMax" min="-2.5" max="2.5" step="0.05" value="1.5" class="w-full">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: EXPANDED SONIFICATION CONFIGURATION -->
+            <div class="p-3 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-studio-purple flex items-center gap-1.5">
+                        <i class="fa-solid fa-sliders"></i> 3. Configuración del Motor Sonoro
+                    </span>
+                </div>
+
+                <div class="bg-studio-card p-2 rounded-xl border border-studio-border space-y-2 text-xs">
+                    <div class="rounded-lg border border-studio-purple/40 bg-gradient-to-r from-studio-purple/15 to-studio-amber/10 p-2">
+                        <label for="soundProfile" class="text-studio-amber block text-[10px] font-bold uppercase tracking-wide mb-1">Perfil de sonificación</label>
+                        <select id="soundProfile" class="w-full bg-studio-bg border border-studio-border rounded p-1.5 text-xs text-slate-200">
+                            <option value="terrain">Terreno · síntesis general</option>
+                            <option value="strataDrone">Drone estratigráfico · profundo y lento</option>
+                            <option value="darkAmbient">Drone oscuro · armónicos evolutivos</option>
+                        </select>
+                        <p id="profileDescription" class="text-[10px] text-slate-400 leading-relaxed mt-1.5">La forma y elevación de la geometría modulan el perfil sonoro.</p>
+                        <div id="darkDroneControls" class="hidden mt-2 grid grid-cols-3 gap-2 border-t border-studio-border/60 pt-2">
+                            <label class="text-[9px] text-slate-400">Voces
+                                <select id="droneVoiceCount" class="w-full mt-1 bg-studio-bg border border-studio-border rounded p-1.5 text-[10px] text-slate-200">
+                                    <option value="6">6 · escaso</option>
+                                    <option value="12" selected>12 · rico</option>
+                                    <option value="18">18 · denso</option>
+                                    <option value="24">24 · coral</option>
+                                </select>
+                            </label>
+                            <label class="text-[9px] text-slate-400">Batimiento <span id="droneDetuneValue">8¢</span>
+                                <input id="droneDetune" type="range" min="0" max="30" step="1" value="8" class="w-full mt-2" aria-label="Desafinación en centésimas">
+                            </label>
+                            <label class="text-[9px] text-slate-400">Anchura <span id="droneWidthValue">72%</span>
+                                <input id="droneWidth" type="range" min="0" max="100" step="1" value="72" class="w-full mt-2" aria-label="Anchura estéreo del drone">
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Duration & Base Pitch -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400 block text-[10px] mb-0.5">Duración (3s a 60s)</label>
+                            <select id="paramDuration" class="w-full bg-studio-bg border border-studio-border rounded p-1.5 text-xs text-slate-200">
+                                <option value="3">3 Segundos</option>
+                                <option value="5" selected>5 Segundos</option>
+                                <option value="8">8 Segundos</option>
+                                <option value="12">12 Segundos</option>
+                                <option value="15">15 Segundos</option>
+                                <option value="20">20 Segundos</option>
+                                <option value="30">30 Segundos</option>
+                                <option value="45">45 Segundos</option>
+                                <option value="60">60 Segundos (1 Minuto)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block text-[10px] mb-0.5">Tono Base / Tónica</label>
+                            <select id="paramBasePitch" class="w-full bg-studio-bg border border-studio-border rounded p-1.5 text-xs text-slate-200">
+                                <option value="55">A1 (55 Hz - Sub-Grave)</option>
+                                <option value="110">A2 (110 Hz - Grave Profundo)</option>
+                                <option value="220" selected>A3 (220 Hz - Estándar)</option>
+                                <option value="440">A4 (440 Hz - Brillante)</option>
+                                <option value="880">A5 (880 Hz - Agudo)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Timbre / Carrier Waveform & Scale Quantization -->
+                    <div class="grid grid-cols-2 gap-2 pt-1 border-t border-studio-border/50">
+                        <div>
+                            <label class="text-slate-400 block text-[10px] mb-0.5">Timbre / Forma de Onda</label>
+                            <select id="paramWaveform" class="w-full bg-studio-bg border border-studio-border rounded p-1.5 text-xs text-slate-200">
+                                <option value="sine" selected>Senoidal (Pura)</option>
+                                <option value="triangle">Triangular (Suave)</option>
+                                <option value="sawtooth">Diente de Sierra</option>
+                                <option value="square">Cuadrada (Digital)</option>
+                                <option value="fm">Sintetizador FM Metálico</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block text-[10px] mb-0.5">Escala Musical</label>
+                            <select id="paramScale" class="w-full bg-studio-bg border border-studio-border rounded p-1.5 text-xs text-slate-200">
+                                <option value="continuous" selected>Frecuencia Continua</option>
+                                <option value="pentatonic">Pentatónica Menor</option>
+                                <option value="dorian">Modo Dórico</option>
+                                <option value="chromatic">Cromática 12-TET</option>
+                                <option value="harmonics">Armónicos Sísmicos</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Envelope -->
+                    <div class="grid grid-cols-1 gap-2 pt-1 border-t border-studio-border/50">
+                        <div>
+                            <label class="text-slate-400 block text-[10px] mb-0.5">Envolvente ADSR</label>
+                            <select id="paramEnvelope" class="w-full bg-studio-bg border border-studio-border rounded p-1.5 text-xs text-slate-200">
+                                <option value="soft" selected>Soft (Fade-In)</option>
+                                <option value="percussive">Percusivo (Ataque)</option>
+                                <option value="drone">Drone (Sostenido)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Option A & B Engine Tuning -->
+                    <div class="grid grid-cols-2 gap-2 pt-1 border-t border-studio-border/50">
+                        <div>
+                            <label class="text-studio-cyan text-[10px] font-semibold block mb-0.5">Opción A: Filtro</label>
+                            <select id="paramOptionASmooth" class="w-full bg-studio-bg border border-studio-border rounded p-1 text-xs text-slate-200">
+                                <option value="0">Estrato Directo</option>
+                                <option value="3" selected>Suavizado Ligero</option>
+                                <option value="8">Paso Bajo Intenso</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label id="optionBLabel" class="text-studio-purple text-[10px] font-semibold block mb-0.5">Opción B: Armónicos</label>
+                            <select id="paramOptionBRes" class="w-full bg-studio-bg border border-studio-border rounded p-1 text-xs text-slate-200">
+                                <option value="32">32 Armónicos (Lo-Fi)</option>
+                                <option value="64" selected>64 Armónicos (Rico)</option>
+                                <option value="128">128 Armónicos (Denso)</option>
+                                <option value="256">256 Armónicos (Hi-Fi)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Process Button -->
+                <button id="btnProcessSonify" class="w-full py-2 bg-gradient-to-r from-studio-cyan via-studio-amber to-studio-purple text-slate-950 font-bold rounded-xl shadow-lg hover:brightness-110 active:scale-[0.99] transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> PROCESAR Y SONIFICAR GEOLOGÍA
+                </button>
+                <p id="processingStatus" class="min-h-4 text-[10px] text-slate-400" aria-live="polite"></p>
+            </div>
+
+        </aside>
+
+        <!-- RIGHT WORKSPACE: 3D VIEWPORT & AUDIO LAB -->
+        <main class="app-main flex-1 flex flex-col bg-studio-bg overflow-hidden">
+            
+            <!-- TOP HALF: 3D VIEWPORT -->
+            <div class="viewer-panel h-1/2 relative border-b border-studio-border bg-slate-950/90">
+                <div id="threeContainer" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+                <!-- View Modes Overlay -->
+                <div class="absolute top-3 left-3 right-3 bg-studio-panel/90 backdrop-blur border border-studio-border p-1.5 rounded-lg flex items-center gap-1.5 flex-wrap text-xs z-10 shadow-lg">
+                    <button id="vModeShaded" class="vmode-btn bg-studio-cyan text-slate-950 px-2 py-1 rounded font-semibold transition text-xs">Superficie</button>
+                    <button id="vModePoints" class="vmode-btn text-slate-400 hover:text-white px-2 py-1 rounded transition text-xs">Puntos</button>
+                    <button id="vModeWire" class="vmode-btn text-slate-400 hover:text-white px-2 py-1 rounded transition text-xs">Malla</button>
+                    <div class="h-4 w-px bg-studio-border mx-1"></div>
+                    <label class="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="chkShowBox" checked class="accent-studio-cyan rounded"> Caja Delimitadora
+                    </label>
+                    <label class="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="chkShowAxes" checked class="accent-studio-cyan rounded"> Ejes
+                    </label>
+                    <label class="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="chkShowGrid" checked class="accent-studio-cyan rounded"> Cuadrícula
+                    </label>
+                    <button id="btnFitView" class="ml-auto rounded border border-studio-border bg-studio-card px-2 py-1 text-[11px] text-studio-cyan hover:border-studio-cyan" type="button"><i class="fa-solid fa-crosshairs mr-1"></i>Encuadrar</button>
+                </div>
+
+                <!-- Elevation Spectrum Legend -->
+                <div class="absolute bottom-3 right-3 bg-studio-panel/85 backdrop-blur border border-studio-border px-3 py-1.5 rounded-lg text-[10px] z-10 flex flex-col items-end gap-1">
+                    <span class="text-slate-400 font-mono">Espectro de Elevación</span>
+                    <div class="w-32 h-2 rounded bg-gradient-to-r from-[#321610] via-[#a73d25] via-[#e97832] to-[#f1c45b] border border-slate-700"></div>
+                    <div class="flex justify-between w-32 text-slate-400 font-mono text-[9px]">
+                        <span>Low (−Y)</span>
+                        <span>High (+Y)</span>
+                    </div>
+                </div>
+
+                <!-- Controls Guide Hint -->
+                <div class="absolute bottom-3 left-3 text-[10px] text-slate-500 pointer-events-none font-mono">
+                    <i class="fa-solid fa-hand-pointer mr-1"></i> Clic Izq: Rotar | <span class="text-studio-cyan">Shift + Arrastrar: XY · Shift + Alt: Z</span> | Rueda: Zoom
+                </div>
+            </div>
+
+            <!-- BOTTOM HALF: DUAL VISUALIZER & DAW AUDIO PLAYER -->
+            <div class="audio-panel h-1/2 flex flex-col bg-studio-panel">
+                
+                <!-- Tab Navigation -->
+                <div class="flex items-center justify-between border-b border-studio-border px-4 bg-studio-card/40 shrink-0">
+                    <div class="flex gap-2">
+                        <button id="tabOptionA" class="tab-btn px-4 py-2 text-xs font-bold border-b-2 border-studio-cyan text-studio-cyan flex items-center gap-2 transition">
+                            <i class="fa-solid fa-wave-square"></i> Opción A: Perfil Topográfico Directo
+                        </button>
+                        <button id="tabOptionB" class="tab-btn px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+                            <i class="fa-solid fa-chart-area"></i> Opción B: Espectrograma de Superficie
+                        </button>
+                    </div>
+
+                    <!-- Export Options -->
+                    <div class="flex items-center gap-2 py-1">
+                        <label for="wavBitDepth" class="sr-only">WAV bit depth</label>
+                        <select id="wavBitDepth" class="bg-studio-bg border border-studio-border text-slate-300 px-1.5 py-1 rounded text-[10px]">
+                            <option value="16">16-bit PCM</option>
+                            <option value="24" selected>24-bit PCM</option>
+                        </select>
+                        <button id="btnExportWav" title="Descargar el audio en formato WAV" class="bg-studio-card hover:bg-studio-border text-studio-cyan border border-studio-cyan/30 px-2.5 py-1 rounded text-xs transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-download"></i> WAV
+                        </button>
+                        <button id="btnExportAudioJson" title="Descargar el JSON de metadatos correspondiente al WAV" class="bg-studio-card hover:bg-studio-border text-studio-cyan border border-studio-cyan/30 px-2.5 py-1 rounded text-xs transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-code"></i> JSON
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Visualizers Display -->
+                <div class="flex-1 relative p-2.5 overflow-hidden bg-slate-950/70 flex items-center justify-center">
+                    
+                    <!-- TAB A CONTENT -->
+                    <div id="contentOptionA" class="w-full h-full flex flex-col gap-2">
+                        <div class="grid grid-cols-2 gap-2 h-full">
+                            <div class="bg-studio-card/80 border border-studio-border rounded-xl p-2 flex flex-col relative">
+                                <span class="text-[10px] text-slate-400 font-mono uppercase mb-1 flex items-center gap-1">
+                                    <i class="fa-solid fa-chart-line text-studio-cyan"></i> Perfil Transversal Extraído (Espacial 2D)
+                                </span>
+                                <div class="flex-1 relative w-full">
+                                    <canvas id="canvasProfile2D" class="absolute inset-0 w-full h-full"></canvas>
+                                </div>
+                            </div>
+                            <div class="bg-studio-card/80 border border-studio-border rounded-xl p-2 flex flex-col relative">
+                                <span class="text-[10px] text-slate-400 font-mono uppercase mb-1 flex items-center gap-1">
+                                    <i class="fa-solid fa-audio-description text-studio-amber"></i> Osciloscopio de Audio Sintetizado (Dominio Temporal)
+                                </span>
+                                <div class="flex-1 relative w-full">
+                                    <canvas id="canvasWaveform" class="absolute inset-0 w-full h-full"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB B CONTENT -->
+                    <div id="contentOptionB" class="w-full h-full flex flex-col gap-2 hidden">
+                        <div class="grid grid-cols-2 gap-2 h-full">
+                            <div class="bg-studio-card/80 border border-studio-border rounded-xl p-2 flex flex-col relative">
+                                <span class="text-[10px] text-slate-400 font-mono uppercase mb-1 flex items-center gap-1">
+                                    <i class="fa-solid fa-border-all text-studio-purple"></i> Mapa de Alturas Rasterizado (Matriz 2D)
+                                </span>
+                                <div class="flex-1 relative w-full flex items-center justify-center">
+                                    <canvas id="canvasHeightmap" class="max-h-full max-w-full rounded border border-slate-800"></canvas>
+                                </div>
+                            </div>
+                            <div class="bg-studio-card/80 border border-studio-border rounded-xl p-2 flex flex-col relative">
+                                <span class="text-[10px] text-slate-400 font-mono uppercase mb-1 flex items-center gap-1">
+                                    <i class="fa-solid fa-bars-staggered text-emerald-400"></i> Espectrograma de Síntesis Aditiva
+                                </span>
+                                <div class="flex-1 relative w-full flex items-center justify-center">
+                                    <canvas id="canvasSpectrogram" class="max-h-full max-w-full rounded border border-slate-800"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- DAW AUDIO CONTROL PLAYER BAR -->
+                <div class="bg-studio-card border-t border-studio-border px-4 py-2 flex items-center gap-4 shrink-0">
+                    <div class="flex items-center gap-2">
+                        <button id="btnPlay" class="w-9 h-9 rounded-xl bg-studio-cyan text-slate-950 font-bold hover:scale-105 active:scale-95 transition flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                            <i class="fa-solid fa-play text-xs"></i>
+                        </button>
+                        <button id="btnStop" class="w-8 h-8 rounded-lg bg-studio-bg hover:bg-studio-border text-slate-300 transition flex items-center justify-center border border-studio-border">
+                            <i class="fa-solid fa-stop text-xs"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex-1 flex flex-col justify-center gap-0.5">
+                        <div class="flex justify-between text-[11px] font-mono">
+                            <span id="playerCurrentTime" class="text-studio-cyan">00:00.00</span>
+                            <span id="playerActiveTrack" class="text-slate-400">Pista Activa: Opción A</span>
+                            <span id="playerTotalTime" class="text-slate-400">00:05.00</span>
+                        </div>
+                        <input type="range" id="playerSeek" min="0" max="100" value="0" step="0.1" class="w-full cursor-pointer">
+                    </div>
+
+                    <div class="flex items-center gap-3 border-l border-studio-border pl-4">
+                        <button id="btnToggleReverb" class="px-2.5 py-1 rounded bg-studio-bg border border-studio-border text-slate-400 text-xs hover:border-studio-purple transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-archway text-studio-purple"></i>
+                            <span>Eco de Cañón</span>
+                        </button>
+                        <div class="flex items-center gap-1" title="Nivel del eco de cañón">
+                            <i class="fa-solid fa-water text-xs text-studio-purple"></i>
+                            <input type="range" id="reverbMix" min="0" max="0.8" step="0.01" value="0.28" class="w-16" aria-label="Cantidad de eco de cañón">
+                        </div>
+                        <details id="reverbAdvanced" class="relative">
+                            <summary class="cursor-pointer rounded border border-studio-border bg-studio-bg px-2 py-1 text-[10px] text-slate-400 hover:text-white">Ajustes eco</summary>
+                            <div class="absolute bottom-full right-0 z-30 mb-2 w-64 space-y-2 rounded-lg border border-studio-border bg-studio-panel p-3 shadow-xl">
+                                <label class="block text-[10px] text-slate-300">Pre-delay <span id="reverbPreDelayValue" class="text-studio-cyan">35 ms</span>
+                                    <input id="reverbPreDelay" type="range" min="0" max="180" step="5" value="35" class="w-full mt-1" aria-label="Pre-delay del eco">
+                                </label>
+                                <label class="block text-[10px] text-slate-300">Cola / decay <span id="reverbDecayValue" class="text-studio-cyan">3.5 s</span>
+                                    <input id="reverbDecay" type="range" min="1" max="8" step="0.5" value="3.5" class="w-full mt-1" aria-label="Duración de la cola del eco">
+                                </label>
+                                <p class="text-[9px] leading-relaxed text-slate-500">Ajusta el retraso inicial de la reflexión y el tiempo de decaimiento de la cola difusa.</p>
+                            </div>
+                        </details>
+
+                        <div class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-filter text-xs text-slate-400"></i>
+                            <input type="range" id="fxFilter" min="200" max="12000" value="6000" class="w-16" title="Filtro Paso Bajo">
+                        </div>
+
+                        <div class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-volume-high text-xs text-slate-400"></i>
+                            <input type="range" id="masterVolume" min="0" max="1" step="0.05" value="0.8" class="w-20" title="Volumen Principal">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- GUIDE MODAL -->
+    <div id="guideModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-studio-panel border border-studio-border max-w-xl w-full rounded-2xl p-5 space-y-3.5 text-slate-300">
+            <div class="flex justify-between items-center border-b border-studio-border pb-2.5">
+                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-mountain text-studio-cyan"></i> Guía del Estudio de Sonificación 3D
+                </h3>
+                <button id="btnCloseGuide" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            
+            <div class="space-y-2.5 text-xs leading-relaxed">
+                <p><strong class="text-studio-cyan">Soporte Multi-Formato:</strong> Importa modelos completos <code>.OBJ</code> junto a materiales <code>.MTL</code> y texturas, o archivos <code>.STL</code>, <code>.PLY</code>, y <code>.XYZ</code>.</p>
+                
+                <div class="bg-studio-card p-2.5 rounded-lg space-y-1 border border-studio-border">
+                    <h4 class="font-bold text-studio-amber uppercase text-[11px]">Movimiento Interactivo en 3D</h4>
+                    <p>Usa los controles de posición para desplazamientos finos o por pasos; los botones −45°, −90°, −180° y +45°, +90°, +180° giran cada eje con precisión. En la ventana 3D, mantén <kbd class="bg-slate-800 px-1 py-0.5 rounded text-studio-cyan">Shift</kbd> y arrastra para mover en XY; añade <kbd class="bg-slate-800 px-1 py-0.5 rounded text-studio-cyan">Alt</kbd> para mover en Z.</p>
+                </div>
+
+                <div class="bg-studio-card p-2.5 rounded-lg space-y-1 border border-studio-border">
+                    <h4 class="font-bold text-studio-purple uppercase text-[11px]">Parámetros Extendidos de Audio</h4>
+                    <p>Modifica duraciones desde 3s hasta 60s, elige timbres (Senoidal, Triangular, Sierra, Cuadrada o FM Metálica), asigna escalas de notas y exporta WAV PCM de 16 o 24 bits con un JSON de metadatos de acompañamiento. Eco de Cañón ofrece controles de mezcla, pre-delay y decaimiento. El Drone oscuro permite ajustar 6–24 voces, desafinación y anchura estéreo.</p>
+                </div>
+            </div>
+
+            <button id="btnGotIt" class="w-full py-2 bg-studio-cyan text-slate-950 font-bold rounded-lg hover:brightness-110 text-xs uppercase">Comprender y Continuar</button>
+        </div>
+    </div>
+
+    <!-- APPLICATION CODE -->
+    <script>
+        // Global Application State
+        const state = {
+            activeTab: 'OptionA',
+            rawVertices: [],
+            transformedVertices: [],
+            renderIndices: null,
+            geometryKind: 'grid',
+            needsCameraFit: true,
+            modelFilename: 'Strata preset',
+            
+            // Transforms
+            posX: 0, posY: 0, posZ: 0,
+            rotX: 0, rotY: 0, rotZ: 0,
+            cropX: [-1.5, 1.5],
+            cropY: [-1.5, 1.5],
+            cropZ: [-1.5, 1.5],
+
+            // Audio Parameters
+            duration: 5,
+            soundProfile: 'terrain',
+            profileSettings: {},
+            basePitch: 220,
+            waveform: 'sine',
+            scale: 'continuous',
+            envelope: 'soft',
+            optionASmooth: 3,
+            optionBRes: 64,
+            droneVoiceCount: 12,
+            droneDetuneCents: 8,
+            droneStereoWidth: 0.72,
+
+            // Web Audio Nodes
+            bufferA: null, bufferB: null,
+            audioCtx: null, sourceNode: null, gainNode: null, reverbGainNode: null,
+            filterNode: null, convolverNode: null, reverbPreDelay: 0.035, reverbDecay: 3.5,
+            isPlaying: false, startTime: 0, playbackOffset: 0, reverbEnabled: false, reverbWet: 0.28,
+            processId: 0, processTimeout: null, reverbUpdateTimeout: null,
+            
+            // Viewport & Key Interaction
+            viewMode: 'shaded',
+            showBox: true,
+            showAxes: true,
+            isShiftDown: false,
+            isDraggingShift: false,
+            previousMousePosition: { x: 0, y: 0 }
+        };
+
+        let scene, camera, renderer, controls;
+        let geoGroup, boundingBoxMesh, axesHelper, groundGrid;
+        let loadedMaterials = null;
+
+        // Pitch Quantization Maps
+        const SCALES = {
+            pentatonic: [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24],
+            dorian: [0, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19, 21, 22, 24],
+            chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            harmonics: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16]
+        };
+        window.addEventListener('DOMContentLoaded', () => {
+            init3DScene();
+            initAudioContext();
+            setupEventListeners();
+            loadPreset('strata');
+            animate();
+        });
+
+        // 1. THREE.JS VIEWPORT INITIALIZATION
+        function init3DScene() {
+            const container = document.getElementById('threeContainer');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x100906);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(3, 2.5, 3.5);
+            camera.near = 0.01;
+            camera.far = 1000;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.enablePan = true;
+            controls.minDistance = 0.05;
+            controls.maxDistance = 500;
+
+            geoGroup = new THREE.Group();
+            scene.add(geoGroup);
+
+            // Studio Lighting
+            const ambient = new THREE.AmbientLight(0xf0d5b0, 0.8);
+            scene.add(ambient);
+
+            const dir1 = new THREE.DirectionalLight(0xffd18a, 1.1);
+            dir1.position.set(5, 10, 7);
+            scene.add(dir1);
+
+            const dir2 = new THREE.DirectionalLight(0xc3472c, 0.65);
+            dir2.position.set(-5, -5, -5);
+            scene.add(dir2);
+
+            // Ground Grid & Dynamic Bounding Box
+            groundGrid = new THREE.GridHelper(6, 24, 0x69452d, 0x38251b);
+            groundGrid.position.y = -1.5;
+            scene.add(groundGrid);
+            axesHelper = new THREE.AxesHelper(1.6);
+            scene.add(axesHelper);
+
+            const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+            const boxMat = new THREE.MeshBasicMaterial({ color: 0xe8a24b, wireframe: true, transparent: true, opacity: 0.45 });
+            boundingBoxMesh = new THREE.Mesh(boxGeo, boxMat);
+            scene.add(boundingBoxMesh);
+
+            window.addEventListener('resize', onWindowResize);
+            if (window.ResizeObserver) new ResizeObserver(onWindowResize).observe(container);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('threeContainer');
+            if (!container || !camera || !renderer || !container.clientHeight) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            updatePlayheadVisuals();
+        }
+
+        // 2. PROCEDURAL PRESETS GENERATOR
+        function loadPreset(type) {
+            let points = [];
+            const count = 60;
+
+            for (let i = 0; i < count; i++) {
+                for (let j = 0; j < count; j++) {
+                    let u = (i / (count - 1)) * 2 - 1;
+                    let v = (j / (count - 1)) * 2 - 1;
+                    let z = 0;
+
+                    if (type === 'strata') {
+                        z = Math.sin(u * 5) * 0.25 + Math.cos(v * 12) * 0.15 + (Math.sin(v * 25) > 0.4 ? 0.1 : -0.1);
+                    } else if (type === 'crater') {
+                        let dist = Math.sqrt(u * u + v * v);
+                        z = Math.sin(dist * 4) * 0.4 - Math.exp(-dist * 3) * 0.6;
+                    } else if (type === 'basalt') {
+                        z = (Math.floor(Math.sin(u * 15) * 4) / 4) * 0.2 + (Math.floor(Math.cos(v * 15) * 4) / 4) * 0.2;
+                    } else if (type === 'canyon') {
+                        z = -Math.exp(-Math.pow(u * 3, 2)) * 0.8 + Math.sin(v * 8) * 0.1;
+                    }
+                    points.push(u, z, v);
+                }
+            }
+
+            state.rawVertices = new Float32Array(points);
+            state.geometryKind = 'grid';
+            state.modelFilename = `${type} preset`;
+            state.needsCameraFit = true;
+            document.getElementById('modelInfoTag').textContent = `${(points.length / 3).toLocaleString()} Vértices`;
+            applyTransformsAndProcess();
+        }
+
+        // 3. FILE PARSERS (.OBJ, .MTL, .STL, .PLY, .XYZ)
+        function handleFiles(files) {
+            let objFile = null, mtlFile = null, stlFile = null, xyzFile = null;
+            loadedMaterials = null;
+
+            for (let file of files) {
+                const name = file.name.toLowerCase();
+                if (name.endsWith('.obj')) objFile = file;
+                else if (name.endsWith('.mtl')) mtlFile = file;
+                else if (name.endsWith('.stl')) stlFile = file;
+                else if (name.endsWith('.xyz') || name.endsWith('.ply')) xyzFile = file;
+            }
+
+            const fileStatus = document.getElementById('fileStatus');
+            if (mtlFile && objFile) {
+                const mtlReader = new FileReader();
+                mtlReader.onload = (e) => {
+                    try {
+                        const mtlLoader = new THREE.MTLLoader();
+                        loadedMaterials = mtlLoader.parse(e.target.result);
+                        loadedMaterials.preload();
+                        loadOBJFile(objFile);
+                    } catch (error) {
+                        fileStatus.textContent = `MTL error: ${error.message}`;
+                        console.error('No se pudo interpretar el archivo MTL seleccionado.', error);
+                    }
+                };
+                mtlReader.onerror = () => { fileStatus.textContent = 'No se pudo leer el archivo MTL.'; };
+                mtlReader.readAsText(mtlFile);
+            } else if (objFile) {
+                loadOBJFile(objFile);
+            } else if (stlFile) {
+                loadSTLFile(stlFile);
+            } else if (xyzFile) {
+                loadXYZFile(xyzFile);
+            } else {
+                fileStatus.textContent = 'Selecciona un archivo OBJ, STL, PLY ASCII o XYZ.';
+            }
+        }
+
+        function loadOBJFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const objLoader = new THREE.OBJLoader();
+                    if (loadedMaterials) objLoader.setMaterials(loadedMaterials);
+
+                    const obj = objLoader.parse(e.target.result);
+                    let coords = [];
+
+                    obj.traverse((child) => {
+                        if (child.isMesh) {
+                            const pos = child.geometry.attributes.position;
+                            for (let i = 0; i < pos.count; i++) {
+                                coords.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+                            }
+                        }
+                    });
+
+                    if (coords.length > 0) {
+                        state.rawVertices = normalizeCoordinates(new Float32Array(coords));
+                        state.geometryKind = 'triangles';
+                        state.modelFilename = file.name;
+                        state.needsCameraFit = true;
+                        document.getElementById('fileStatus').textContent = `Cargado: ${file.name}`;
+                        document.getElementById('modelInfoTag').textContent = `${(coords.length / 3).toLocaleString()} Vértices`;
+                        applyTransformsAndProcess();
+                    } else {
+                        document.getElementById('fileStatus').textContent = 'El OBJ no contiene geometría triangular.';
+                    }
+                } catch (error) {
+                    document.getElementById('fileStatus').textContent = `Error en OBJ: ${error.message}`;
+                    console.error('No se pudo interpretar el archivo OBJ seleccionado.', error);
+                }
+            };
+            reader.onerror = () => { document.getElementById('fileStatus').textContent = 'No se pudo leer el archivo OBJ.'; };
+            reader.readAsText(file);
+        }
+
+        function loadSTLFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const stlLoader = new THREE.STLLoader();
+                    const geometry = stlLoader.parse(e.target.result);
+                    const pos = geometry.attributes.position;
+                    let coords = [];
+                    for (let i = 0; i < pos.count; i++) {
+                        coords.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+                    }
+                    if (coords.length < 9) throw new Error('No se encontró geometría triangular.');
+                    state.rawVertices = normalizeCoordinates(new Float32Array(coords));
+                    state.geometryKind = 'triangles';
+                    state.modelFilename = file.name;
+                    state.needsCameraFit = true;
+                    document.getElementById('fileStatus').textContent = `Cargado: ${file.name}`;
+                    document.getElementById('modelInfoTag').textContent = `${(coords.length / 3).toLocaleString()} Vértices`;
+                    applyTransformsAndProcess();
+                } catch (error) {
+                    document.getElementById('fileStatus').textContent = `Error en STL: ${error.message}`;
+                    console.error('No se pudo interpretar el archivo STL seleccionado.', error);
+                }
+            };
+            reader.onerror = () => { document.getElementById('fileStatus').textContent = 'No se pudo leer el archivo STL.'; };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadXYZFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                let lines = text.split(/\r?\n/);
+                const isPly = file.name.toLowerCase().endsWith('.ply');
+                if (isPly) {
+                    const endHeader = lines.findIndex(line => line.trim() === 'end_header');
+                    const vertexCount = Number((text.match(/^element\s+vertex\s+(\d+)\s*$/m) || [])[1]);
+                    if (endHeader < 0 || !/^format ascii\b/m.test(text) || !vertexCount) {
+                        document.getElementById('fileStatus').textContent = 'PLY requiere un archivo ASCII válido con datos de vértices.';
+                        return;
+                    }
+                    lines = lines.slice(endHeader + 1, endHeader + 1 + vertexCount);
+                }
+                let coords = [];
+                for (let line of lines) {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 3) {
+                        let x = parseFloat(parts[0]), y = parseFloat(parts[1]), z = parseFloat(parts[2]);
+                        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) coords.push(x, y, z);
+                    }
+                }
+                if (coords.length < 3) {
+                    document.getElementById('fileStatus').textContent = 'No se encontraron puntos XYZ válidos.';
+                    return;
+                }
+                state.rawVertices = normalizeCoordinates(new Float32Array(coords));
+                state.geometryKind = 'points';
+                state.modelFilename = file.name;
+                state.needsCameraFit = true;
+                document.getElementById('fileStatus').textContent = `Cargado: ${file.name} · nube de puntos`;
+                document.getElementById('modelInfoTag').textContent = `${(coords.length / 3).toLocaleString()} Vértices`;
+                applyTransformsAndProcess();
+            };
+            reader.onerror = () => { document.getElementById('fileStatus').textContent = 'No se pudo leer el archivo de puntos.'; };
+            reader.readAsText(file);
+        }
+
+        function normalizeCoordinates(arr) {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            for (let i = 0; i < arr.length; i += 3) {
+                minX = Math.min(minX, arr[i]); maxX = Math.max(maxX, arr[i]);
+                minY = Math.min(minY, arr[i+1]); maxY = Math.max(maxY, arr[i+1]);
+                minZ = Math.min(minZ, arr[i+2]); maxZ = Math.max(maxZ, arr[i+2]);
+            }
+            const maxDim = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
+            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
+
+            const res = new Float32Array(arr.length);
+            for (let i = 0; i < arr.length; i += 3) {
+                res[i] = ((arr[i] - cx) / maxDim) * 2;
+                res[i+1] = ((arr[i+1] - cy) / maxDim) * 2;
+                res[i+2] = ((arr[i+2] - cz) / maxDim) * 2;
+            }
+            return res;
+        }
+
+        // 4. TRANSFORMS & BOUNDING BOX CROPPING
+        function applyTransformsAndProcess() {
+            const raw = state.rawVertices;
+            const transformed = new Float32Array(raw.length);
+            let transformedLength = 0;
+            const gridIndexMap = state.geometryKind === 'grid' ? new Int32Array(raw.length / 3).fill(-1) : null;
+
+            const rx = (state.rotX * Math.PI) / 180;
+            const ry = (state.rotY * Math.PI) / 180;
+            const rz = (state.rotZ * Math.PI) / 180;
+            const euler = new THREE.Euler(rx, ry, rz, 'XYZ');
+            const vec = new THREE.Vector3();
+
+            const groupSize = state.geometryKind === 'triangles' ? 9 : 3;
+            for (let i = 0; i + groupSize <= raw.length; i += groupSize) {
+                const groupStart = transformedLength;
+                let groupIsInsideCrop = true;
+                for (let vertex = i; vertex < i + groupSize; vertex += 3) {
+                    vec.set(raw[vertex], raw[vertex + 1], raw[vertex + 2]);
+                    vec.applyEuler(euler);
+                    vec.x += state.posX;
+                    vec.y += state.posY;
+                    vec.z += state.posZ;
+                    transformed[transformedLength++] = vec.x;
+                    transformed[transformedLength++] = vec.y;
+                    transformed[transformedLength++] = vec.z;
+                    if (vec.x < state.cropX[0] || vec.x > state.cropX[1] ||
+                        vec.y < state.cropY[0] || vec.y > state.cropY[1] ||
+                        vec.z < state.cropZ[0] || vec.z > state.cropZ[1]) {
+                        groupIsInsideCrop = false;
+                    }
+                }
+                if (gridIndexMap) {
+                    if (groupIsInsideCrop) gridIndexMap[i / 3] = transformedLength / 3 - 1;
+                    else transformedLength = groupStart;
+                } else if (!groupIsInsideCrop) {
+                    transformedLength = groupStart;
+                }
+            }
+
+            state.transformedVertices = transformed.slice(0, transformedLength);
+            state.renderIndices = null;
+            if (gridIndexMap) {
+                const gridSize = Math.sqrt(gridIndexMap.length);
+                if (Number.isInteger(gridSize) && gridSize > 1) {
+                    const indices = [];
+                    for (let row = 0; row < gridSize - 1; row++) {
+                        for (let column = 0; column < gridSize - 1; column++) {
+                            const a = row * gridSize + column;
+                            const b = a + 1;
+                            const c = a + gridSize;
+                            const d = c + 1;
+                            if (gridIndexMap[a] >= 0 && gridIndexMap[b] >= 0 && gridIndexMap[c] >= 0 && gridIndexMap[d] >= 0) {
+                                indices.push(gridIndexMap[a], gridIndexMap[b], gridIndexMap[d], gridIndexMap[a], gridIndexMap[d], gridIndexMap[c]);
+                            }
+                        }
+                    }
+                    state.renderIndices = new Uint32Array(indices);
+                }
+            }
+            update3DGeometry();
+            updateBoundingBoxVisualizer();
+            scheduleSonification();
+        }
+
+        function update3DGeometry() {
+            while (geoGroup.children.length > 0) {
+                const obj = geoGroup.children[0];
+                if (obj.geometry) obj.geometry.dispose();
+                if (Array.isArray(obj.material)) obj.material.forEach(material => material.dispose());
+                else if (obj.material) obj.material.dispose();
+                geoGroup.remove(obj);
+            }
+
+            const points = state.transformedVertices;
+            if (points.length < 3) return;
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+
+            let minElevation = Infinity, maxElevation = -Infinity;
+            for (let i = 0; i < points.length; i += 3) {
+                minElevation = Math.min(minElevation, points[i + 1]);
+                maxElevation = Math.max(maxElevation, points[i + 1]);
+            }
+            const strataPalette = ['#351711', '#77301f', '#b84928', '#e77b32', '#f2bd58'];
+            const palette = strataPalette.map(value => new THREE.Color(value));
+            const colors = new Float32Array(points.length);
+            const color = new THREE.Color();
+            let colorIndex = 0;
+            for (let i = 0; i < points.length; i += 3) {
+                const elevation = (points[i + 1] - minElevation) / (maxElevation - minElevation || 1);
+                const palettePosition = elevation * (palette.length - 1);
+                const paletteIndex = Math.min(palette.length - 2, Math.floor(palettePosition));
+                color.copy(palette[paletteIndex]).lerp(palette[paletteIndex + 1], palettePosition - paletteIndex);
+                colors[colorIndex++] = color.r;
+                colors[colorIndex++] = color.g;
+                colors[colorIndex++] = color.b;
+            }
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            let hasSurface = false;
+            if (state.geometryKind === 'grid' && state.renderIndices?.length) {
+                geometry.setIndex(new THREE.BufferAttribute(state.renderIndices, 1));
+                geometry.computeVertexNormals();
+                hasSurface = true;
+            } else if (state.geometryKind === 'triangles' && points.length % 9 === 0) {
+                geometry.computeVertexNormals();
+                hasSurface = true;
+            }
+
+            if (!hasSurface || state.viewMode === 'points') {
+                geoGroup.add(new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.025, vertexColors: true, sizeAttenuation: true })));
+            } else if (state.viewMode === 'shaded') {
+                const meshMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0.04, side: THREE.DoubleSide });
+                geoGroup.add(new THREE.Mesh(geometry, meshMat));
+            } else if (state.viewMode === 'wire') {
+                geoGroup.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0xe8a24b, wireframe: true })));
+            } else {
+                geoGroup.add(new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.025, vertexColors: true, sizeAttenuation: true })));
+            }
+
+            if (state.needsCameraFit) {
+                fitCameraToModel();
+                state.needsCameraFit = false;
+            }
+        }
+
+        function updateBoundingBoxVisualizer() {
+            if (!state.showBox) { boundingBoxMesh.visible = false; return; }
+            boundingBoxMesh.visible = true;
+            const sx = state.cropX[1] - state.cropX[0];
+            const sy = state.cropY[1] - state.cropY[0];
+            const sz = state.cropZ[1] - state.cropZ[0];
+            boundingBoxMesh.scale.set(sx || 0.1, sy || 0.1, sz || 0.1);
+            boundingBoxMesh.position.set((state.cropX[0] + state.cropX[1])/2, (state.cropY[0] + state.cropY[1])/2, (state.cropZ[0] + state.cropZ[1])/2);
+        }
+
+        function fitCameraToModel() {
+            const geometry = geoGroup.children[0]?.geometry;
+            const position = geometry?.getAttribute('position');
+            if (!position || position.count === 0) return;
+            geometry.computeBoundingSphere();
+            const bounds = geometry.boundingSphere;
+            const radius = Math.max(bounds.radius, 0.05);
+            const distance = (radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.35;
+            controls.target.copy(bounds.center);
+            camera.position.copy(bounds.center).add(new THREE.Vector3(distance * 0.85, distance * 0.6, distance));
+            camera.near = Math.max(0.001, distance / 1000);
+            camera.far = Math.max(100, distance * 100);
+            camera.updateProjectionMatrix();
+            controls.update();
+        }
+
+        const METADATA_FIELDS = ['metaLatitude', 'metaLongitude', 'metaAltitude', 'metaAltitudeUnit', 'metaCrs', 'metaDatum', 'metaSite', 'metaDate', 'metaSource'];
+
+        function readMetadata() {
+            return Object.fromEntries(METADATA_FIELDS.map(id => [id.replace(/^meta/, '').replace(/^./, letter => letter.toLowerCase()), document.getElementById(id).value.trim()]));
+        }
+
+        function loadMetadata() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('wavstrata.metadata') || '{}');
+                for (const id of METADATA_FIELDS) {
+                    const key = id.replace(/^meta/, '').replace(/^./, letter => letter.toLowerCase());
+                    if (typeof saved[key] === 'string') document.getElementById(id).value = saved[key];
+                }
+            } catch (error) {
+                document.getElementById('metadataStatus').textContent = 'No se pudieron cargar los metadatos guardados.';
+                console.warn('No se pudieron leer los metadatos de Wavstrata en el almacenamiento local.', error);
+            }
+        }
+
+        function saveMetadata() {
+            const metadata = readMetadata();
+            const latitude = metadata.latitude === '' ? null : Number(metadata.latitude);
+            const longitude = metadata.longitude === '' ? null : Number(metadata.longitude);
+            if ((latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) ||
+                (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))) {
+                document.getElementById('metadataStatus').textContent = 'Revisa la latitud (−90 a 90) y longitud (−180 a 180).';
+                return false;
+            }
+            try {
+                localStorage.setItem('wavstrata.metadata', JSON.stringify(metadata));
+                document.getElementById('metadataStatus').textContent = 'Metadatos guardados en este navegador.';
+                return true;
+            } catch (error) {
+                document.getElementById('metadataStatus').textContent = 'No se pudieron guardar los metadatos en este navegador.';
+                console.error('No se pudieron guardar los metadatos de Wavstrata.', error);
+                return false;
+            }
+        }
+
+        function exportMetadata() {
+            if (!saveMetadata()) return;
+            const coordinates = readMetadata();
+            for (const field of ['latitude', 'longitude', 'altitude']) {
+                coordinates[field] = coordinates[field] === '' ? null : Number(coordinates[field]);
+            }
+            const payload = {
+                application: 'Wavstrata',
+                exportedAt: new Date().toISOString(),
+                model: {
+                    filename: state.modelFilename,
+                    geometry: state.geometryKind,
+                    vertexCount: state.rawVertices.length / 3,
+                    normalizedCoordinates: true
+                },
+                coordinates
+            };
+            const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = 'wavstrata-metadata.json';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        // 5. WEB AUDIO SYNTHESIS ENGINE
+        function initAudioContext() {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            state.audioCtx = new AudioCtx();
+
+            state.gainNode = state.audioCtx.createGain();
+            state.gainNode.gain.value = 0.8;
+
+            state.filterNode = state.audioCtx.createBiquadFilter();
+            state.filterNode.type = 'lowpass';
+            state.filterNode.frequency.value = 6000;
+
+            state.convolverNode = state.audioCtx.createConvolver();
+            state.convolverNode.buffer = createCanyonImpulseResponse(state.audioCtx);
+            state.reverbGainNode = state.audioCtx.createGain();
+            state.reverbGainNode.gain.value = 0;
+
+            state.filterNode.connect(state.gainNode);
+            state.filterNode.connect(state.convolverNode);
+            state.convolverNode.connect(state.reverbGainNode);
+            state.reverbGainNode.connect(state.gainNode);
+            state.gainNode.connect(state.audioCtx.destination);
+        }
+
+        function createCanyonImpulseResponse(ctx, preDelay = state.reverbPreDelay, decaySeconds = state.reverbDecay) {
+            const rate = ctx.sampleRate;
+            const preDelaySamples = Math.round(preDelay * rate);
+            const length = Math.ceil(rate * (preDelay + decaySeconds));
+            const impulse = ctx.createBuffer(2, length, rate);
+            const left = impulse.getChannelData(0), right = impulse.getChannelData(1);
+            const reflections = [
+                [0.043, 0.38], [0.079, 0.31], [0.126, 0.25], [0.194, 0.2],
+                [0.287, 0.16], [0.413, 0.12], [0.586, 0.09], [0.812, 0.065]
+            ];
+            let randomState = 0x51a7a;
+            let lowLeft = 0, lowRight = 0;
+            for (let i = 0; i < length; i++) {
+                if (i < preDelaySamples) continue;
+                randomState = (randomState * 1664525 + 1013904223) >>> 0;
+                const noiseLeft = (randomState / 0x80000000) - 1;
+                randomState = (randomState * 1664525 + 1013904223) >>> 0;
+                const noiseRight = (randomState / 0x80000000) - 1;
+                const elapsed = (i - preDelaySamples) / rate;
+                const progress = elapsed / decaySeconds;
+                const decay = Math.exp(-elapsed / (decaySeconds * 0.38)) * Math.pow(1 - progress, 1.4);
+                lowLeft += (noiseLeft - lowLeft) * 0.12;
+                lowRight += (noiseRight - lowRight) * 0.12;
+                left[i] = lowLeft * decay * 0.42;
+                right[i] = lowRight * decay * 0.42;
+            }
+            left[preDelaySamples] = 1;
+            right[preDelaySamples] = 1;
+            reflections.forEach(([time, level], index) => {
+                const offset = preDelaySamples + Math.floor(time * rate);
+                const leftOffset = offset;
+                const rightOffset = offset + Math.floor((index + 1) * rate * 0.0021);
+                if (leftOffset < length) left[leftOffset] += level;
+                if (rightOffset < length) right[rightOffset] += level * (index % 2 ? 0.82 : 1);
+            });
+            return impulse;
+        }
+
+        function scheduleCanyonImpulseUpdate() {
+            if (state.reverbUpdateTimeout) clearTimeout(state.reverbUpdateTimeout);
+            state.reverbUpdateTimeout = setTimeout(() => {
+                state.reverbUpdateTimeout = null;
+                if (state.convolverNode && state.audioCtx) {
+                    state.convolverNode.buffer = createCanyonImpulseResponse(state.audioCtx);
+                }
+            }, 120);
+        }
+
+        function scheduleSonification() {
+            if (state.processTimeout) clearTimeout(state.processTimeout);
+            const processId = ++state.processId;
+            state.processTimeout = setTimeout(() => {
+                state.processTimeout = null;
+                processSonification(processId);
+            }, 180);
+        }
+
+        async function processSonification(processId = ++state.processId) {
+            if (!state.audioCtx) return;
+            if (state.processTimeout) {
+                clearTimeout(state.processTimeout);
+                state.processTimeout = null;
+            }
+            stopPlayback();
+            const status = document.getElementById('processingStatus');
+            status.textContent = 'Procesando audio...';
+            try {
+                state.bufferA = null;
+                state.bufferB = null;
+                renderCanvasOptionA();
+                renderCanvasOptionB();
+                const bufferA = await generateAudioOptionA();
+                if (processId !== state.processId) return;
+                state.bufferA = bufferA;
+                renderCanvasOptionA();
+                renderCanvasOptionB();
+                const bufferB = await generateAudioOptionB();
+                if (processId !== state.processId) return;
+                state.bufferB = bufferB;
+                renderCanvasOptionB();
+                status.textContent = '';
+            } catch (error) {
+                if (processId !== state.processId) return;
+                state.bufferA = null;
+                state.bufferB = null;
+                status.textContent = `Error al procesar el audio: ${error.message}`;
+                console.error('No se pudo procesar la sonificación.', error);
+            }
+        }
+
+        function getDarkAmbientVoices() {
+            const count = Math.max(6, Math.min(24, state.droneVoiceCount));
+            const detuneRatio = Math.pow(2, state.droneDetuneCents / 1200);
+            const harmonicRatios = [0.5, 1, 1, 1.5, 2, 2, 3, 4, 4, 5, 6, 7];
+            const voices = Array.from({ length: count }, (_, index) => {
+                const harmonicIndex = index % harmonicRatios.length;
+                const octave = Math.floor(index / harmonicRatios.length);
+                const isBeatingVoice = [2, 5, 8, 11].includes(harmonicIndex);
+                const detune = isBeatingVoice ? (index % 2 ? detuneRatio : 1 / detuneRatio) : 1;
+                return {
+                    ratio: harmonicRatios[harmonicIndex] * Math.pow(2, octave) * detune,
+                    weight: 1 / Math.sqrt(index + 1)
+                };
+            });
+            const weightSum = voices.reduce((sum, voice) => sum + voice.weight, 0);
+            return voices.map(voice => ({ ...voice, weight: (voice.weight / weightSum) * 0.9 }));
+        }
+
+        async function generateAudioOptionA() {
+            const points = state.transformedVertices, sampleRate = 44100;
+            const numSamples = sampleRate * state.duration;
+            const isComplexDrone = state.soundProfile === 'darkAmbient';
+            const buffer = state.audioCtx.createBuffer(isComplexDrone ? 2 : 1, numSamples, sampleRate);
+            const channel = buffer.getChannelData(0);
+
+            if (points.length === 0) return buffer;
+
+            const profileBins = 2048;
+            const profileSums = new Float64Array(profileBins);
+            const profileCounts = new Uint32Array(profileBins);
+            let minX = Infinity, maxX = -Infinity;
+            for (let i = 0; i < points.length; i += 3) {
+                minX = Math.min(minX, points[i]);
+                maxX = Math.max(maxX, points[i]);
+            }
+            for (let i = 0; i < points.length; i += 3) {
+                const x = Math.max(0, Math.min(profileBins - 1, Math.floor(((points[i] - minX) / (maxX - minX || 1)) * (profileBins - 1))));
+                profileSums[x] += points[i + 1];
+                profileCounts[x]++;
+            }
+            let rawAmps = new Float32Array(profileBins);
+            let lastElevation = 0;
+            for (let i = 0; i < profileBins; i++) {
+                if (profileCounts[i]) lastElevation = profileSums[i] / profileCounts[i];
+                rawAmps[i] = lastElevation;
+            }
+
+            const smoothRadius = Math.max(0, Math.floor(state.optionASmooth));
+            if (smoothRadius > 0) {
+                const prefixSums = new Float64Array(rawAmps.length + 1);
+                for (let i = 0; i < rawAmps.length; i++) {
+                    prefixSums[i + 1] = prefixSums[i] + rawAmps[i];
+                }
+                rawAmps = rawAmps.map((_, i) => {
+                    const start = Math.max(0, i - smoothRadius);
+                    const end = Math.min(rawAmps.length, i + smoothRadius + 1);
+                    return (prefixSums[end] - prefixSums[start]) / (end - start);
+                });
+            }
+
+            const baseFreq = parseFloat(state.basePitch);
+            const waveType = state.waveform;
+
+            if (state.soundProfile === 'strataDrone') {
+                let minElevation = Infinity, maxElevation = -Infinity;
+                for (let i = 0; i < rawAmps.length; i++) {
+                    minElevation = Math.min(minElevation, rawAmps[i]);
+                    maxElevation = Math.max(maxElevation, rawAmps[i]);
+                }
+                const elevationRange = maxElevation - minElevation || 1;
+                const profileAt = (position) => {
+                    const wrapped = ((position % 1) + 1) % 1;
+                    const index = wrapped * (rawAmps.length - 1);
+                    const low = Math.floor(index), high = Math.min(rawAmps.length - 1, low + 1);
+                    const blend = index - low;
+                    const elevation = rawAmps[low] + (rawAmps[high] - rawAmps[low]) * blend;
+                    return Math.max(0, Math.min(1, (elevation - minElevation) / elevationRange));
+                };
+                const attackSamples = sampleRate * 2.5;
+                const releaseSamples = sampleRate * 3;
+                let phase = 0;
+
+                for (let i = 0; i < numSamples; i++) {
+                    const progress = i / numSamples;
+                    const elevation = profileAt(progress);
+                    const frequency = baseFreq * Math.pow(2, ((elevation - 0.5) * 2) / 12);
+                    phase += (2 * Math.PI * frequency) / sampleRate;
+
+                    const subLevel = 0.65 + profileAt(progress + 0.23) * 0.35;
+                    const overtoneLevel = 0.45 + profileAt(progress + 0.51) * 0.55;
+                    const upperLevel = 0.3 + profileAt(progress + 0.77) * 0.7;
+                    let envelope = Math.min(1, i / attackSamples);
+                    envelope *= Math.min(1, (numSamples - i) / releaseSamples);
+                    const drone = Math.sin(phase) * 0.45
+                        + Math.sin(phase * 0.5) * subLevel * 0.24
+                        + Math.sin(phase * 2) * overtoneLevel * 0.18
+                        + Math.sin(phase * 3) * upperLevel * 0.1;
+                    channel[i] = drone * envelope * 0.72;
+                }
+                return buffer;
+            }
+
+            if (state.soundProfile === 'darkAmbient') {
+                let minElevation = Infinity, maxElevation = -Infinity;
+                for (let i = 0; i < rawAmps.length; i++) {
+                    minElevation = Math.min(minElevation, rawAmps[i]);
+                    maxElevation = Math.max(maxElevation, rawAmps[i]);
+                }
+                const elevationRange = maxElevation - minElevation || 1;
+                const profileAt = (position) => {
+                    const wrapped = ((position % 1) + 1) % 1;
+                    const index = wrapped * (rawAmps.length - 1);
+                    const low = Math.floor(index), high = Math.min(rawAmps.length - 1, low + 1);
+                    const blend = index - low;
+                    const elevation = rawAmps[low] + (rawAmps[high] - rawAmps[low]) * blend;
+                    return Math.max(0, Math.min(1, (elevation - minElevation) / elevationRange));
+                };
+                const voices = getDarkAmbientVoices();
+                const OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+                if (!OfflineAudioContext) throw new Error('El navegador no admite OfflineAudioContext.');
+                const offlineContext = new OfflineAudioContext(2, numSamples, sampleRate);
+                const masterGain = offlineContext.createGain();
+                const attack = Math.min(6, state.duration / 4);
+                const release = Math.min(8, state.duration / 4);
+                masterGain.gain.setValueAtTime(0, 0);
+                masterGain.gain.linearRampToValueAtTime(0.85, attack);
+                masterGain.gain.setValueAtTime(0.85, Math.max(attack, state.duration - release));
+                masterGain.gain.linearRampToValueAtTime(0, state.duration);
+                masterGain.connect(offlineContext.destination);
+
+                const controlPoints = 256;
+                for (let voice = 0; voice < voices.length; voice++) {
+                    const oscillator = offlineContext.createOscillator();
+                    const voiceGain = offlineContext.createGain();
+                    const panner = offlineContext.createStereoPanner();
+                    oscillator.type = 'sine';
+                    const voicePan = (voice / (voices.length - 1) * 2 - 1) * state.droneStereoWidth;
+                    panner.pan.setValueAtTime(voicePan, 0);
+                    voiceGain.gain.setValueAtTime(0, 0);
+
+                    for (let frame = 0; frame <= controlPoints; frame++) {
+                        const progress = frame / controlPoints;
+                        const time = progress * state.duration;
+                        const voicePosition = progress + voice * 0.071;
+                        const elevation = profileAt(voicePosition);
+                        const slowTerrain = profileAt(voicePosition + 0.19) - 0.5;
+                        const lfoRate = 0.025 + voice * 0.007;
+                        const drift = Math.sin(2 * Math.PI * lfoRate * time) * 0.2 + slowTerrain * 0.3;
+                        const frequency = baseFreq * voices[voice].ratio
+                            * Math.pow(2, (drift + (elevation - 0.5) * 0.45) / 12);
+                        const swell = 0.7 + 0.3 * Math.sin(2 * Math.PI * lfoRate * time * (1.15 + voice * 0.025));
+                        const level = voices[voice].weight * (0.2 + elevation * 0.8) * swell * 1.1;
+
+                        if (frame === 0) {
+                            oscillator.frequency.setValueAtTime(frequency, time);
+                            voiceGain.gain.setValueAtTime(level, time);
+                        } else {
+                            oscillator.frequency.linearRampToValueAtTime(frequency, time);
+                            voiceGain.gain.linearRampToValueAtTime(level, time);
+                            if (frame % 8 === 0) {
+                                const slowOrbit = Math.sin(2 * Math.PI * (0.012 + voice * 0.001) * time + voice) * 0.08;
+                                panner.pan.linearRampToValueAtTime(Math.max(-1, Math.min(1, voicePan + slowOrbit)), time);
+                            }
+                        }
+                    }
+
+                    oscillator.connect(voiceGain);
+                    voiceGain.connect(panner);
+                    panner.connect(masterGain);
+                    oscillator.start();
+                    oscillator.stop(state.duration);
+                }
+                return offlineContext.startRendering();
+            }
+
+            for (let i = 0; i < numSamples; i++) {
+                let t = i / numSamples;
+                let idx = Math.floor(t * (rawAmps.length - 1));
+                let amp = rawAmps[idx] || 0;
+
+                // Scale pitch quantization
+                let freq = baseFreq;
+                if (state.scale !== 'continuous' && SCALES[state.scale]) {
+                    const scaleArr = SCALES[state.scale];
+                    const scaleIdx = Math.floor(((amp + 1.5) / 3.0) * (scaleArr.length - 1));
+                    const semitone = scaleArr[Math.max(0, Math.min(scaleArr.length - 1, scaleIdx))];
+                    freq = baseFreq * Math.pow(2, semitone / 12);
+                }
+
+                // Envelope ADSR
+                let env = 1.0;
+                if (state.envelope === 'soft') {
+                    env = Math.min(1.0, i / (sampleRate * 0.3)) * Math.min(1.0, (numSamples - i) / (sampleRate * 0.3));
+                } else if (state.envelope === 'percussive') {
+                    env = Math.exp(-i / (sampleRate * 0.8));
+                }
+
+                // Waveform Synthesis
+                let sample = 0;
+                let phase = 2 * Math.PI * freq * (i / sampleRate);
+                if (waveType === 'sine') sample = Math.sin(phase);
+                else if (waveType === 'triangle') sample = Math.asin(Math.sin(phase)) * (2 / Math.PI);
+                else if (waveType === 'sawtooth') sample = 2 * ((freq * (i / sampleRate)) % 1) - 1;
+                else if (waveType === 'square') sample = Math.sin(phase) >= 0 ? 1 : -1;
+                else if (waveType === 'fm') sample = Math.sin(phase + Math.sin(phase * 2.5) * 2.0);
+
+                channel[i] = sample * (0.3 + amp * 0.5) * env;
+            }
+            return buffer;
+        }
+
+        async function generateAudioOptionB() {
+            const points = state.transformedVertices, sampleRate = 44100;
+            const numSamples = sampleRate * state.duration;
+            if (points.length === 0) return state.audioCtx.createBuffer(state.soundProfile === 'darkAmbient' ? 2 : 1, numSamples, sampleRate);
+
+            const numBins = parseInt(state.optionBRes);
+            const numTimeSteps = state.soundProfile === 'darkAmbient' ? 256 : 100;
+            const grid = Array.from({ length: numBins }, () => new Float32Array(numTimeSteps));
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            let minZ = Infinity, maxZ = -Infinity;
+            for (let i = 0; i < points.length; i += 3) {
+                minX = Math.min(minX, points[i]);
+                maxX = Math.max(maxX, points[i]);
+                minY = Math.min(minY, points[i + 1]);
+                maxY = Math.max(maxY, points[i + 1]);
+                minZ = Math.min(minZ, points[i + 2]);
+                maxZ = Math.max(maxZ, points[i + 2]);
+            }
+            const xRange = maxX - minX || 1, yRange = maxY - minY || 1, zRange = maxZ - minZ || 1;
+
+            for (let i = 0; i < points.length; i += 3) {
+                let u = (points[i] - minX) / xRange;
+                let v = (points[i + 2] - minZ) / zRange;
+                let elev = (points[i + 1] - minY) / yRange;
+                let tIdx = Math.floor(u * numTimeSteps), fIdx = Math.floor(v * numBins);
+                tIdx = Math.min(numTimeSteps - 1, tIdx);
+                fIdx = Math.min(numBins - 1, fIdx);
+                if (tIdx >= 0 && tIdx < numTimeSteps && fIdx >= 0 && fIdx < numBins) {
+                    grid[fIdx][tIdx] = Math.max(grid[fIdx][tIdx], elev);
+                }
+            }
+
+            const baseFreq = parseFloat(state.basePitch);
+            const OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+            if (!OfflineAudioContext) throw new Error('El navegador no admite OfflineAudioContext.');
+            const offlineContext = new OfflineAudioContext(state.soundProfile === 'darkAmbient' ? 2 : 1, numSamples, sampleRate);
+            const masterGain = offlineContext.createGain();
+            const isDroneProfile = state.soundProfile === 'strataDrone' || state.soundProfile === 'darkAmbient';
+            masterGain.gain.setValueAtTime(isDroneProfile ? 0 : 1, 0);
+            if (isDroneProfile) {
+                const attack = Math.min(state.soundProfile === 'darkAmbient' ? 6 : 2.5, state.duration / 4);
+                const release = Math.min(state.soundProfile === 'darkAmbient' ? 8 : 3, state.duration / 4);
+                masterGain.gain.linearRampToValueAtTime(0.85, attack);
+                masterGain.gain.setValueAtTime(0.85, Math.max(attack, state.duration - release));
+                masterGain.gain.linearRampToValueAtTime(0, state.duration);
+            }
+            masterGain.connect(offlineContext.destination);
+            if (state.soundProfile === 'darkAmbient') {
+                const voices = getDarkAmbientVoices();
+                for (let voice = 0; voice < voices.length; voice++) {
+                    const oscillator = offlineContext.createOscillator();
+                    const voiceGain = offlineContext.createGain();
+                    const panner = offlineContext.createStereoPanner();
+                    const band = Math.round((voice / (voices.length - 1)) * (numBins - 1));
+                    oscillator.type = 'sine';
+                    const voicePan = (voice / (voices.length - 1) * 2 - 1) * state.droneStereoWidth;
+                    panner.pan.setValueAtTime(voicePan, 0);
+                    oscillator.frequency.setValueAtTime(baseFreq * voices[voice].ratio, 0);
+                    voiceGain.gain.setValueAtTime(0, 0);
+
+                    for (let t = 0; t < numTimeSteps; t++) {
+                        const time = ((t + 1) / numTimeSteps) * state.duration;
+                        const elevation = grid[band][t];
+                        const neighboringElevation = grid[Math.min(numBins - 1, band + 1)][t];
+                        const shape = (elevation + neighboringElevation) * 0.5;
+                        const drift = ((shape - 0.5) * 0.65 + Math.sin(t * 0.11 + voice) * 0.12) / 12;
+                        const frequency = baseFreq * voices[voice].ratio * Math.pow(2, drift);
+                        const level = voices[voice].weight * (0.3 + shape * 0.7);
+                        oscillator.frequency.linearRampToValueAtTime(frequency, time);
+                        voiceGain.gain.linearRampToValueAtTime(level, time);
+                        if ((t + 1) % 8 === 0) {
+                            const slowOrbit = Math.sin(t * 0.035 + voice) * 0.08;
+                            panner.pan.linearRampToValueAtTime(Math.max(-1, Math.min(1, voicePan + slowOrbit)), time);
+                        }
+                    }
+
+                    oscillator.connect(voiceGain);
+                    voiceGain.connect(panner);
+                    panner.connect(masterGain);
+                    oscillator.start();
+                    oscillator.stop(state.duration);
+                }
+                return offlineContext.startRendering();
+            }
+
+            const droneRatios = [0.5, 1, 1.5, 2, 3];
+            for (let b = 0; b < numBins; b++) {
+                const oscillator = offlineContext.createOscillator();
+                const gain = offlineContext.createGain();
+                const droneFrequency = baseFreq * droneRatios[b % droneRatios.length];
+                oscillator.frequency.value = state.soundProfile === 'strataDrone'
+                    ? droneFrequency
+                    : baseFreq + (b / numBins) * 1800;
+                if (state.soundProfile === 'strataDrone') oscillator.type = 'sine';
+                gain.gain.setValueAtTime(0, 0);
+                for (let t = 0; t < numTimeSteps; t++) {
+                    const amplitude = grid[b][t];
+                    const time = (t / numTimeSteps) * state.duration;
+                    if (state.soundProfile === 'strataDrone') {
+                        const level = amplitude > 0.05 ? amplitude / (numBins * 1.5) : 0;
+                        gain.gain.linearRampToValueAtTime(level, ((t + 1) / numTimeSteps) * state.duration);
+                    } else {
+                        const level = amplitude > 0.05 ? amplitude / (numBins * 0.25) : 0;
+                        gain.gain.setValueAtTime(level, time);
+                    }
+                }
+                oscillator.connect(gain);
+                gain.connect(masterGain);
+                oscillator.start();
+                oscillator.stop(state.duration);
+            }
+            return offlineContext.startRendering();
+        }
+
+        // 6. CANVAS VISUALIZERS
+        function renderCanvasOptionA() {
+            const canvasProf = document.getElementById('canvasProfile2D');
+            const ctxP = canvasProf.getContext('2d');
+            canvasProf.width = canvasProf.clientWidth; canvasProf.height = canvasProf.clientHeight;
+            ctxP.clearRect(0, 0, canvasProf.width, canvasProf.height);
+
+            const points = state.transformedVertices;
+            if (points.length === 0) return;
+
+            const profileWidth = Math.max(2, Math.min(1200, canvasProf.width * 2));
+            const profileSums = new Float64Array(profileWidth);
+            const profileCounts = new Uint32Array(profileWidth);
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (let i = 0; i < points.length; i += 3) {
+                minX = Math.min(minX, points[i]); maxX = Math.max(maxX, points[i]);
+                minY = Math.min(minY, points[i + 1]); maxY = Math.max(maxY, points[i + 1]);
+            }
+            for (let i = 0; i < points.length; i += 3) {
+                const x = Math.max(0, Math.min(profileWidth - 1, Math.floor(((points[i] - minX) / (maxX - minX || 1)) * (profileWidth - 1))));
+                profileSums[x] += points[i + 1];
+                profileCounts[x]++;
+            }
+            const profile = [];
+            for (let i = 0; i < profileWidth; i++) {
+                if (profileCounts[i]) profile.push({ x: i, y: profileSums[i] / profileCounts[i] });
+            }
+            ctxP.beginPath(); ctxP.strokeStyle = '#e8a24b'; ctxP.lineWidth = 2;
+            for (let i = 0; i < profile.length; i++) {
+                const px = (profile[i].x / (profileWidth - 1)) * canvasProf.width;
+                const py = canvasProf.height - ((profile[i].y - minY) / (maxY - minY || 1)) * canvasProf.height;
+                if (i === 0) ctxP.moveTo(px, py); else ctxP.lineTo(px, py);
+            }
+            ctxP.stroke();
+
+            const canvasWave = document.getElementById('canvasWaveform');
+            const ctxW = canvasWave.getContext('2d');
+            canvasWave.width = canvasWave.clientWidth; canvasWave.height = canvasWave.clientHeight;
+            ctxW.clearRect(0, 0, canvasWave.width, canvasWave.height);
+
+            if (!state.bufferA) return;
+            const data = state.bufferA.getChannelData(0);
+            const step = Math.ceil(data.length / canvasWave.width);
+            ctxW.beginPath(); ctxW.strokeStyle = '#f0b948'; ctxW.lineWidth = 1.5;
+            for (let i = 0; i < canvasWave.width; i++) {
+                let datum = data[i * step] || 0;
+                ctxW.lineTo(i, (1 + datum) * (canvasWave.height / 2));
+            }
+            ctxW.stroke();
+        }
+
+        function renderCanvasOptionB() {
+            const canvasH = document.getElementById('canvasHeightmap');
+            const ctxH = canvasH.getContext('2d');
+            canvasH.width = 160; canvasH.height = 160;
+            const imgData = ctxH.createImageData(160, 160);
+            const points = state.transformedVertices;
+            let minElevation = Infinity, maxElevation = -Infinity;
+            for (let i = 0; i < points.length; i += 3) {
+                minElevation = Math.min(minElevation, points[i + 1]);
+                maxElevation = Math.max(maxElevation, points[i + 1]);
+            }
+            const ramp = [[53, 23, 17], [119, 48, 31], [184, 73, 40], [231, 123, 50], [242, 189, 88]];
+
+            for (let i = 0; i < points.length; i += 3) {
+                let u = Math.floor(((points[i] + 1.5) / 3.0) * 160);
+                let v = Math.floor(((points[i+2] + 1.5) / 3.0) * 160);
+                const elevation = Math.max(0, Math.min(1, (points[i + 1] - minElevation) / (maxElevation - minElevation || 1)));
+                const rampPosition = elevation * (ramp.length - 1);
+                const rampIndex = Math.min(ramp.length - 2, Math.floor(rampPosition));
+                const blend = rampPosition - rampIndex;
+                if (u >= 0 && u < 160 && v >= 0 && v < 160) {
+                    let idx = (v * 160 + u) * 4;
+                    for (let channel = 0; channel < 3; channel++) {
+                        imgData.data[idx + channel] = ramp[rampIndex][channel] + (ramp[rampIndex + 1][channel] - ramp[rampIndex][channel]) * blend;
+                    }
+                    imgData.data[idx + 3] = 255;
+                }
+            }
+            ctxH.putImageData(imgData, 0, 0);
+
+            const canvasS = document.getElementById('canvasSpectrogram');
+            const ctxS = canvasS.getContext('2d');
+            const width = 160, height = 160, windowSize = 256, frequencyBins = windowSize / 2;
+            canvasS.width = width; canvasS.height = height;
+            ctxS.clearRect(0, 0, width, height);
+            if (!state.bufferB) return;
+            const audio = state.bufferB.getChannelData(0);
+            const hop = Math.max(1, Math.floor((audio.length - windowSize) / width));
+            const windowValues = Float32Array.from({ length: windowSize }, (_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (windowSize - 1)));
+            const magnitudes = new Float32Array(width * frequencyBins);
+            let maxMagnitude = 0;
+            for (let x = 0; x < width; x++) {
+                const start = Math.min(audio.length - windowSize, x * hop);
+                for (let bin = 0; bin < frequencyBins; bin++) {
+                    const angle = (2 * Math.PI * bin) / windowSize;
+                    const stepCos = Math.cos(angle), stepSin = Math.sin(angle);
+                    let phaseCos = 1, phaseSin = 0, real = 0, imaginary = 0;
+                    for (let sample = 0; sample < windowSize; sample++) {
+                        const value = audio[start + sample] * windowValues[sample];
+                        real += value * phaseCos;
+                        imaginary -= value * phaseSin;
+                        const nextCos = phaseCos * stepCos - phaseSin * stepSin;
+                        phaseSin = phaseSin * stepCos + phaseCos * stepSin;
+                        phaseCos = nextCos;
+                    }
+                    const magnitude = Math.sqrt(real * real + imaginary * imaginary);
+                    magnitudes[x * frequencyBins + bin] = magnitude;
+                    maxMagnitude = Math.max(maxMagnitude, magnitude);
+                }
+            }
+            const spectrogram = ctxS.createImageData(width, height);
+            for (let x = 0; x < width; x++) {
+                for (let y = 0; y < height; y++) {
+                    const bin = Math.min(frequencyBins - 1, Math.floor(Math.pow(1 - y / height, 2) * (frequencyBins - 1)));
+                    const energy = Math.max(0, Math.min(1, Math.log1p(magnitudes[x * frequencyBins + bin] * 20) / Math.log1p(maxMagnitude * 20 || 1)));
+                    const rampPosition = energy * (ramp.length - 1);
+                    const rampIndex = Math.min(ramp.length - 2, Math.floor(rampPosition));
+                    const blend = rampPosition - rampIndex;
+                    const pixel = (y * width + x) * 4;
+                    for (let channel = 0; channel < 3; channel++) {
+                        spectrogram.data[pixel + channel] = ramp[rampIndex][channel] + (ramp[rampIndex + 1][channel] - ramp[rampIndex][channel]) * blend;
+                    }
+                    spectrogram.data[pixel + 3] = 255;
+                }
+            }
+            ctxS.putImageData(spectrogram, 0, 0);
+        }
+
+        function updatePlayheadVisuals() {
+            if (!state.isPlaying) return;
+            let elapsed = state.audioCtx.currentTime - state.startTime;
+            if (elapsed >= state.duration) { stopPlayback(); return; }
+            document.getElementById('playerSeek').value = (elapsed / state.duration) * 100;
+            document.getElementById('playerCurrentTime').textContent = formatTime(elapsed);
+        }
+
+        function startPlayback() {
+            const activeBuffer = state.activeTab === 'OptionA' ? state.bufferA : state.bufferB;
+            if (!activeBuffer) return;
+            if (state.playbackOffset >= activeBuffer.duration) state.playbackOffset = 0;
+
+            const source = state.audioCtx.createBufferSource();
+            state.sourceNode = source;
+            source.buffer = activeBuffer;
+            source.connect(state.filterNode);
+            source.onended = () => {
+                if (state.sourceNode === source) stopPlayback();
+            };
+
+            state.startTime = state.audioCtx.currentTime - state.playbackOffset;
+            source.start(0, state.playbackOffset);
+            state.isPlaying = true;
+            document.getElementById('btnPlay').innerHTML = '<i class="fa-solid fa-pause text-xs"></i>';
+        }
+
+        function pausePlayback() {
+            if (!state.isPlaying || !state.sourceNode) return;
+            const activeBuffer = state.activeTab === 'OptionA' ? state.bufferA : state.bufferB;
+            state.playbackOffset = Math.min(activeBuffer.duration, state.audioCtx.currentTime - state.startTime);
+            const source = state.sourceNode;
+            state.sourceNode = null;
+            source.onended = null;
+            source.stop();
+            state.isPlaying = false;
+            document.getElementById('btnPlay').innerHTML = '<i class="fa-solid fa-play text-xs"></i>';
+            document.getElementById('playerSeek').value = (state.playbackOffset / activeBuffer.duration) * 100;
+            document.getElementById('playerCurrentTime').textContent = formatTime(state.playbackOffset);
+        }
+
+        function stopPlayback() {
+            if (state.sourceNode) {
+                const source = state.sourceNode;
+                state.sourceNode = null;
+                source.onended = null;
+                source.stop();
+            }
+            state.isPlaying = false;
+            state.playbackOffset = 0;
+            document.getElementById('btnPlay').innerHTML = '<i class="fa-solid fa-play text-xs"></i>';
+            document.getElementById('playerSeek').value = 0;
+            document.getElementById('playerCurrentTime').textContent = '00:00.00';
+        }
+
+        function formatTime(sec) {
+            let m = Math.floor(sec / 60), s = (sec % 60).toFixed(2);
+            return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function readAudioSettings() {
+            state.soundProfile = document.getElementById('soundProfile').value;
+            state.duration = parseInt(document.getElementById('paramDuration').value, 10);
+            state.basePitch = parseInt(document.getElementById('paramBasePitch').value, 10);
+            state.waveform = document.getElementById('paramWaveform').value;
+            state.scale = document.getElementById('paramScale').value;
+            state.envelope = document.getElementById('paramEnvelope').value;
+            state.optionASmooth = parseInt(document.getElementById('paramOptionASmooth').value, 10);
+            state.optionBRes = parseInt(document.getElementById('paramOptionBRes').value, 10);
+            state.droneVoiceCount = parseInt(document.getElementById('droneVoiceCount').value, 10);
+            state.droneDetuneCents = parseInt(document.getElementById('droneDetune').value, 10);
+            state.droneStereoWidth = parseInt(document.getElementById('droneWidth').value, 10) / 100;
+            document.getElementById('droneDetuneValue').textContent = `${state.droneDetuneCents}¢`;
+            document.getElementById('droneWidthValue').textContent = `${Math.round(state.droneStereoWidth * 100)}%`;
+            document.getElementById('darkDroneControls').classList.toggle('hidden', state.soundProfile !== 'darkAmbient');
+            document.getElementById('playerTotalTime').textContent = formatTime(state.duration);
+        }
+
+        function getExportBuffer() {
+            const buffer = state.activeTab === 'OptionA' ? state.bufferA : state.bufferB;
+            if (!buffer) {
+                document.getElementById('processingStatus').textContent = 'Procesa el audio antes de exportarlo.';
+                return null;
+            }
+            return buffer;
+        }
+
+        function getAudioExportDetails(buffer) {
+            const bitDepth = parseInt(document.getElementById('wavBitDepth').value, 10);
+            const stem = `Wavstrata_${state.activeTab}_${bitDepth}bit`;
+            return { bitDepth, stem, manifest: createWavMetadataManifest(buffer, bitDepth, stem) };
+        }
+
+        function exportWav() {
+            const buffer = getExportBuffer();
+            if (!buffer) return;
+            const button = document.getElementById('btnExportWav');
+            const status = document.getElementById('processingStatus');
+            button.disabled = true;
+            status.textContent = 'Preparando WAV...';
+            try {
+                const { bitDepth, stem } = getAudioExportDetails(buffer);
+                const wavBlob = new Blob([bufferToWav(buffer, bitDepth)], { type: 'audio/wav' });
+                downloadFile(wavBlob, `${stem}.wav`);
+                status.textContent = 'WAV descargado. Usa JSON para descargar sus metadatos.';
+                window.setTimeout(() => {
+                    if (status.textContent === 'WAV descargado. Usa JSON para descargar sus metadatos.') status.textContent = '';
+                }, 6000);
+            } catch (error) {
+                status.textContent = `Error al exportar el WAV: ${error.message}`;
+                console.error('No se pudo exportar el WAV de Wavstrata.', error);
+            }
+            button.disabled = false;
+        }
+
+        function exportAudioJson() {
+            const buffer = getExportBuffer();
+            if (!buffer) return;
+            const status = document.getElementById('processingStatus');
+            try {
+                const { stem, manifest } = getAudioExportDetails(buffer);
+                const jsonBlob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+                downloadFile(jsonBlob, `${stem}.metadata.json`);
+                status.textContent = 'JSON de metadatos descargado con el mismo nombre base que el WAV.';
+                window.setTimeout(() => {
+                    if (status.textContent === 'JSON de metadatos descargado con el mismo nombre base que el WAV.') status.textContent = '';
+                }, 6000);
+            } catch (error) {
+                status.textContent = `Error al exportar el JSON: ${error.message}`;
+                console.error('No se pudo exportar el JSON de metadatos de audio de Wavstrata.', error);
+            }
+        }
+
+        function createWavMetadataManifest(buffer, bitDepth, stem) {
+            return {
+                application: 'Wavstrata',
+                exportedAt: new Date().toISOString(),
+                audio: {
+                    filename: `${stem}.wav`,
+                    format: 'PCM WAV',
+                    bitDepth,
+                    sampleRate: buffer.sampleRate,
+                    channels: buffer.numberOfChannels,
+                    durationSeconds: buffer.duration,
+                    synthesisOption: state.activeTab,
+                    profile: state.soundProfile,
+                    basePitchHz: state.basePitch,
+                    waveform: state.waveform,
+                    scale: state.scale,
+                    envelope: state.envelope,
+                    optionASmoothing: state.optionASmooth,
+                    optionBSpatialResolution: state.optionBRes
+                },
+                drone: state.soundProfile === 'darkAmbient' ? {
+                    voices: state.droneVoiceCount,
+                    detuneCents: state.droneDetuneCents,
+                    stereoWidth: state.droneStereoWidth
+                } : null,
+                reverb: {
+                    enabled: state.reverbEnabled,
+                    wetMix: state.reverbWet,
+                    preDelaySeconds: state.reverbPreDelay,
+                    decaySeconds: state.reverbDecay,
+                    includedInWav: false
+                },
+                model: {
+                    filename: state.modelFilename,
+                    geometryKind: state.geometryKind,
+                    vertexCount: state.transformedVertices.length / 3,
+                    position: { x: state.posX, y: state.posY, z: state.posZ },
+                    rotationDegrees: { x: state.rotX, y: state.rotY, z: state.rotZ }
+                },
+                siteMetadata: readMetadata()
+            };
+        }
+
+        function downloadFile(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = filename;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function bufferToWav(buffer, bitDepth = 24) {
+            if (bitDepth !== 16 && bitDepth !== 24) throw new Error('La profundidad WAV debe ser de 16 o 24 bits.');
+            const numOfChan = buffer.numberOfChannels;
+            const bytesPerSample = bitDepth / 8;
+            const dataLength = buffer.length * numOfChan * bytesPerSample;
+            const length = dataLength + 44;
+            const out = new DataView(new ArrayBuffer(length));
+            const channels = Array.from({ length: numOfChan }, (_, index) => buffer.getChannelData(index));
+            let pos = 0;
+            function setUint16(d) { out.setUint16(pos, d, true); pos += 2; }
+            function setUint32(d) { out.setUint32(pos, d, true); pos += 4; }
+
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157); setUint32(0x20746d66);
+            setUint32(16); setUint16(1); setUint16(numOfChan); setUint32(buffer.sampleRate);
+            setUint32(buffer.sampleRate * bytesPerSample * numOfChan); setUint16(numOfChan * bytesPerSample); setUint16(bitDepth);
+            setUint32(0x61746164); setUint32(dataLength);
+
+            for (let i = 0; i < buffer.length; i++) {
+                for (let channelIndex = 0; channelIndex < numOfChan; channelIndex++) {
+                    const channel = channels[channelIndex];
+                    const sample = Math.max(-1, Math.min(1, channel[i]));
+                    if (bitDepth === 16) {
+                        out.setInt16(pos, Math.round(sample < 0 ? sample * 0x8000 : sample * 0x7fff), true);
+                        pos += 2;
+                    } else {
+                        const value = Math.round(sample < 0 ? sample * 0x800000 : sample * 0x7fffff);
+                        out.setUint8(pos++, value & 0xff);
+                        out.setUint8(pos++, (value >> 8) & 0xff);
+                        out.setUint8(pos++, (value >> 16) & 0xff);
+                    }
+                }
+            }
+            return out.buffer;
+        }
+
+        // 7. EVENT LISTENERS & INTERACTIVE CONTROLS
+        function setupEventListeners() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) handleFiles(e.target.files);
+                fileInput.value = '';
+            });
+            ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, event => {
+                event.preventDefault();
+                dropZone.classList.add('border-studio-cyan');
+            }));
+            ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, event => {
+                event.preventDefault();
+                dropZone.classList.remove('border-studio-cyan');
+            }));
+            dropZone.addEventListener('drop', event => {
+                if (event.dataTransfer.files.length) handleFiles(event.dataTransfer.files);
+            });
+            document.querySelectorAll('.demo-btn').forEach(btn => btn.addEventListener('click', () => loadPreset(btn.dataset.preset)));
+            loadMetadata();
+            METADATA_FIELDS.forEach(id => document.getElementById(id).addEventListener('change', saveMetadata));
+            document.getElementById('btnExportMetadata').addEventListener('click', exportMetadata);
+
+            // Shift Drag Detection for Spatial Translation
+            window.addEventListener('keydown', (e) => { if (e.key === 'Shift') { state.isShiftDown = true; controls.enabled = false; } });
+            window.addEventListener('keyup', (e) => { if (e.key === 'Shift') { state.isShiftDown = false; controls.enabled = true; } });
+
+            const container = document.getElementById('threeContainer');
+            container.addEventListener('mousedown', (e) => {
+                if (state.isShiftDown) {
+                    state.isDraggingShift = true;
+                    state.previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (state.isDraggingShift && state.isShiftDown) {
+                    const deltaX = (e.clientX - state.previousMousePosition.x) * 0.005;
+                    const deltaY = (e.clientY - state.previousMousePosition.y) * 0.005;
+
+                    if (e.altKey) {
+                        state.posZ = Math.max(-3, Math.min(3, state.posZ + deltaX));
+                    } else {
+                        state.posX = Math.max(-3, Math.min(3, state.posX + deltaX));
+                        state.posY = Math.max(-3, Math.min(3, state.posY - deltaY));
+                    }
+
+                    document.getElementById('posX').value = state.posX;
+                    document.getElementById('posY').value = state.posY;
+                    document.getElementById('posZ').value = state.posZ;
+                    document.getElementById('posVal').textContent = `X:${state.posX.toFixed(2)} Y:${state.posY.toFixed(2)} Z:${state.posZ.toFixed(2)}`;
+
+                    state.previousMousePosition = { x: e.clientX, y: e.clientY };
+                    applyTransformsAndProcess();
+                }
+            });
+
+            window.addEventListener('mouseup', () => { state.isDraggingShift = false; });
+
+            // Slider Listeners
+            ['X', 'Y', 'Z'].forEach(axis => {
+                document.getElementById(`pos${axis}`).addEventListener('input', (e) => {
+                    state[`pos${axis}`] = parseFloat(e.target.value);
+                    document.getElementById('posVal').textContent = `X:${state.posX.toFixed(2)} Y:${state.posY.toFixed(2)} Z:${state.posZ.toFixed(2)}`;
+                    applyTransformsAndProcess();
+                });
+
+                document.getElementById(`rot${axis}`).addEventListener('input', (e) => {
+                    state[`rot${axis}`] = parseFloat(e.target.value);
+                    document.getElementById('rotVal').textContent = `X:${state.rotX}° Y:${state.rotY}° Z:${state.rotZ}°`;
+                    applyTransformsAndProcess();
+                });
+
+                const minEl = document.getElementById(`crop${axis}Min`);
+                const maxEl = document.getElementById(`crop${axis}Max`);
+                const updateCrop = () => {
+                    state[`crop${axis}`] = [parseFloat(minEl.value), parseFloat(maxEl.value)];
+                    document.getElementById(`crop${axis}Val`).textContent = `${minEl.value} a ${maxEl.value}`;
+                    applyTransformsAndProcess();
+                };
+                minEl.addEventListener('input', updateCrop);
+                maxEl.addEventListener('input', updateCrop);
+            });
+
+            document.querySelectorAll('[data-pos-axis]').forEach(button => button.addEventListener('click', () => {
+                const axis = button.dataset.posAxis;
+                const direction = parseFloat(button.dataset.posDirection);
+                const step = parseFloat(document.getElementById('moveStep').value);
+                state[`pos${axis}`] = Math.max(-3, Math.min(3, state[`pos${axis}`] + direction * step));
+                document.getElementById(`pos${axis}`).value = state[`pos${axis}`];
+                document.getElementById('posVal').textContent = `X:${state.posX.toFixed(2)} Y:${state.posY.toFixed(2)} Z:${state.posZ.toFixed(2)}`;
+                applyTransformsAndProcess();
+            }));
+
+            document.querySelectorAll('[data-rot-axis]').forEach(button => button.addEventListener('click', () => {
+                const axis = button.dataset.rotAxis;
+                const angle = state[`rot${axis}`] + parseFloat(button.dataset.rotDelta);
+                state[`rot${axis}`] = ((angle + 180) % 360 + 360) % 360 - 180;
+                document.getElementById(`rot${axis}`).value = state[`rot${axis}`];
+                document.getElementById('rotVal').textContent = `X:${state.rotX}° Y:${state.rotY}° Z:${state.rotZ}°`;
+                applyTransformsAndProcess();
+            }));
+
+            // Reset Transforms
+            document.getElementById('btnResetTransform').addEventListener('click', () => {
+                state.posX = 0; state.posY = 0; state.posZ = 0;
+                state.rotX = 0; state.rotY = 0; state.rotZ = 0;
+                state.cropX = [-1.5, 1.5]; state.cropY = [-1.5, 1.5]; state.cropZ = [-1.5, 1.5];
+
+                ['X', 'Y', 'Z'].forEach(axis => {
+                    document.getElementById(`pos${axis}`).value = 0;
+                    document.getElementById(`rot${axis}`).value = 0;
+                    document.getElementById(`crop${axis}Min`).value = -1.5;
+                    document.getElementById(`crop${axis}Max`).value = 1.5;
+                    document.getElementById(`crop${axis}Val`).textContent = '-1.5 a 1.5';
+                });
+                document.getElementById('posVal').textContent = 'X:0 Y:0 Z:0';
+                document.getElementById('rotVal').textContent = 'X:0° Y:0° Z:0°';
+                applyTransformsAndProcess();
+            });
+
+            // Checkbox Bounding Box
+            document.getElementById('chkShowBox').addEventListener('change', (e) => {
+                state.showBox = e.target.checked;
+                updateBoundingBoxVisualizer();
+            });
+            document.getElementById('chkShowAxes').addEventListener('change', (e) => {
+                state.showAxes = e.target.checked;
+                axesHelper.visible = state.showAxes;
+            });
+            document.getElementById('chkShowGrid').addEventListener('change', (e) => { groundGrid.visible = e.target.checked; });
+            document.getElementById('btnFitView').addEventListener('click', fitCameraToModel);
+
+            // View Modes
+            document.getElementById('vModeShaded').addEventListener('click', (e) => setViewMode('shaded', e.target));
+            document.getElementById('vModePoints').addEventListener('click', (e) => setViewMode('points', e.target));
+            document.getElementById('vModeWire').addEventListener('click', (e) => setViewMode('wire', e.target));
+
+            // Tabs
+            document.getElementById('tabOptionA').addEventListener('click', () => switchTab('OptionA'));
+            document.getElementById('tabOptionB').addEventListener('click', () => switchTab('OptionB'));
+
+            // Process Button
+            document.getElementById('btnProcessSonify').addEventListener('click', () => {
+                readAudioSettings();
+                processSonification();
+            });
+
+            document.getElementById('soundProfile').addEventListener('change', (event) => {
+                const profile = event.target.value;
+                const controlIds = ['paramDuration', 'paramBasePitch', 'paramWaveform', 'paramScale', 'paramEnvelope', 'paramOptionASmooth', 'paramOptionBRes', 'droneVoiceCount', 'droneDetune', 'droneWidth'];
+                const description = document.getElementById('profileDescription');
+                const previousProfile = state.soundProfile;
+                state.profileSettings[previousProfile] = Object.fromEntries(controlIds.map(id => [id, document.getElementById(id).value]));
+
+                const savedSettings = state.profileSettings[profile];
+                if (savedSettings) {
+                    controlIds.forEach(id => {
+                        document.getElementById(id).value = savedSettings[id];
+                    });
+                } else if (profile === 'strataDrone' || profile === 'darkAmbient') {
+                    const defaults = profile === 'strataDrone'
+                        ? { duration: '30', basePitch: '55', waveform: 'sine', scale: 'pentatonic', envelope: 'drone', smoothing: '8', harmonics: '64', voices: '12', detune: '8', width: '72' }
+                        : { duration: '45', basePitch: '55', waveform: 'sine', scale: 'continuous', envelope: 'drone', smoothing: '8', harmonics: '128', voices: '12', detune: '8', width: '72' };
+                    document.getElementById('paramDuration').value = defaults.duration;
+                    document.getElementById('paramBasePitch').value = defaults.basePitch;
+                    document.getElementById('paramWaveform').value = defaults.waveform;
+                    document.getElementById('paramScale').value = defaults.scale;
+                    document.getElementById('paramEnvelope').value = defaults.envelope;
+                    document.getElementById('paramOptionASmooth').value = defaults.smoothing;
+                    document.getElementById('paramOptionBRes').value = defaults.harmonics;
+                    document.getElementById('droneVoiceCount').value = defaults.voices;
+                    document.getElementById('droneDetune').value = defaults.detune;
+                    document.getElementById('droneWidth').value = defaults.width;
+                }
+
+                if (profile === 'strataDrone') {
+                    description.textContent = 'El relieve modula un drone subgrave en capas, con deriva lenta, armónicos suaves y fades largos.';
+                } else if (profile === 'darkAmbient') {
+                    description.textContent = 'Ajusta el número de voces, los batimientos y la anchura estéreo. La geometría anima armónicos y afinación en una textura oscura y evolutiva.';
+                } else {
+                    description.textContent = 'La forma y elevación de la geometría modulan el perfil sonoro.';
+                }
+
+                const isComplexDrone = profile === 'darkAmbient';
+                document.getElementById('optionBLabel').textContent = isComplexDrone
+                    ? 'Opción B: Resolución espacial'
+                    : 'Opción B: Armónicos';
+                const resolutionNames = { 32: 'Lo-Fi', 64: 'Rico', 128: 'Denso', 256: 'Hi-Fi' };
+                Array.from(document.getElementById('paramOptionBRes').options).forEach(option => {
+                    option.textContent = `${option.value} ${isComplexDrone ? 'Bandas' : 'Armónicos'} (${resolutionNames[option.value]})`;
+                });
+
+                state.soundProfile = profile;
+                readAudioSettings();
+                processSonification();
+            });
+
+            ['droneVoiceCount', 'droneDetune', 'droneWidth'].forEach(id => {
+                document.getElementById(id).addEventListener('input', () => {
+                    readAudioSettings();
+                    state.profileSettings.darkAmbient = {
+                        ...state.profileSettings.darkAmbient,
+                        droneVoiceCount: String(state.droneVoiceCount),
+                        droneDetune: String(state.droneDetuneCents),
+                        droneWidth: String(Math.round(state.droneStereoWidth * 100))
+                    };
+                    scheduleSonification();
+                });
+            });
+
+            // Player Bar Controls
+            document.getElementById('btnPlay').addEventListener('click', () => {
+                if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+                if (state.isPlaying) pausePlayback(); else startPlayback();
+            });
+            document.getElementById('btnStop').addEventListener('click', stopPlayback);
+            document.getElementById('playerSeek').addEventListener('change', (e) => {
+                const wasPlaying = state.isPlaying;
+                if (wasPlaying) pausePlayback();
+                const activeBuffer = state.activeTab === 'OptionA' ? state.bufferA : state.bufferB;
+                state.playbackOffset = activeBuffer.duration * (parseFloat(e.target.value) / 100);
+                document.getElementById('playerCurrentTime').textContent = formatTime(state.playbackOffset);
+                if (wasPlaying && state.playbackOffset < activeBuffer.duration) startPlayback();
+            });
+            document.getElementById('masterVolume').addEventListener('input', (e) => { if (state.gainNode) state.gainNode.gain.value = parseFloat(e.target.value); });
+            document.getElementById('fxFilter').addEventListener('input', (e) => { if (state.filterNode) state.filterNode.frequency.value = parseFloat(e.target.value); });
+            document.getElementById('btnToggleReverb').addEventListener('click', (e) => {
+                state.reverbEnabled = !state.reverbEnabled;
+                state.reverbGainNode.gain.setTargetAtTime(state.reverbEnabled ? state.reverbWet : 0, state.audioCtx.currentTime, 0.08);
+                e.currentTarget.classList.toggle('border-studio-purple', state.reverbEnabled);
+                e.currentTarget.classList.toggle('text-studio-purple', state.reverbEnabled);
+            });
+            document.getElementById('reverbMix').addEventListener('input', (e) => {
+                state.reverbWet = parseFloat(e.target.value);
+                if (state.reverbEnabled) {
+                    state.reverbGainNode.gain.setTargetAtTime(state.reverbWet, state.audioCtx.currentTime, 0.08);
+                }
+            });
+            document.getElementById('reverbPreDelay').addEventListener('input', (e) => {
+                state.reverbPreDelay = parseInt(e.target.value, 10) / 1000;
+                document.getElementById('reverbPreDelayValue').textContent = `${e.target.value} ms`;
+                scheduleCanyonImpulseUpdate();
+            });
+            document.getElementById('reverbDecay').addEventListener('input', (e) => {
+                state.reverbDecay = parseFloat(e.target.value);
+                document.getElementById('reverbDecayValue').textContent = `${state.reverbDecay.toFixed(1)} s`;
+                scheduleCanyonImpulseUpdate();
+            });
+            document.getElementById('btnExportWav').addEventListener('click', exportWav);
+            document.getElementById('btnExportAudioJson').addEventListener('click', exportAudioJson);
+
+            // Guide Modal
+            document.getElementById('btnHelp').addEventListener('click', () => document.getElementById('guideModal').classList.remove('hidden'));
+            document.getElementById('btnCloseGuide').addEventListener('click', () => document.getElementById('guideModal').classList.add('hidden'));
+            document.getElementById('btnGotIt').addEventListener('click', () => document.getElementById('guideModal').classList.add('hidden'));
+        }
+
+        function setViewMode(mode, btn) {
+            state.viewMode = mode;
+            document.querySelectorAll('.vmode-btn').forEach(b => b.className = 'vmode-btn text-slate-400 hover:text-white px-2 py-1 rounded transition text-xs');
+            btn.className = 'vmode-btn bg-studio-cyan text-slate-950 px-2 py-1 rounded font-semibold transition text-xs';
+            update3DGeometry();
+        }
+
+        function switchTab(tab) {
+            if (state.isPlaying || state.playbackOffset > 0) stopPlayback();
+            state.activeTab = tab;
+            document.getElementById('playerActiveTrack').textContent = `Pista Activa: ${tab === 'OptionA' ? 'Opción A' : 'Opción B'}`;
+            if (tab === 'OptionA') {
+                document.getElementById('contentOptionA').classList.remove('hidden');
+                document.getElementById('contentOptionB').classList.add('hidden');
+                document.getElementById('tabOptionA').className = 'tab-btn px-4 py-2 text-xs font-bold border-b-2 border-studio-cyan text-studio-cyan flex items-center gap-2 transition';
+                document.getElementById('tabOptionB').className = 'tab-btn px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition';
+            } else {
+                document.getElementById('contentOptionB').classList.remove('hidden');
+                document.getElementById('contentOptionA').classList.add('hidden');
+                document.getElementById('tabOptionB').className = 'tab-btn px-4 py-2 text-xs font-bold border-b-2 border-studio-purple text-studio-purple flex items-center gap-2 transition';
+                document.getElementById('tabOptionA').className = 'tab-btn px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition';
+            }
+        }
+    </script>
+</body>
+</html>
