@@ -1,0 +1,34 @@
+{
+  "models": [
+    {
+      "name": "Alvaro · esquina spectral",
+      "file": "Alvaro_esquina_spectral.obj",
+      "vertices": 243386,
+      "faces": 486500
+    },
+    {
+      "name": "Álvaro · fuera",
+      "file": "A\u0301lvaro_fuera.obj",
+      "vertices": 277202,
+      "faces": 553357
+    },
+    {
+      "name": "Álvaro · pila y agujero",
+      "file": "A\u0301lvaro_pila_agujero.obj",
+      "vertices": 241474,
+      "faces": 482293
+    },
+    {
+      "name": "Pisadas secas",
+      "file": "Pisadas_secas.obj",
+      "vertices": 203626,
+      "faces": 406692
+    },
+    {
+      "name": "Pisoteo",
+      "file": "Pisoteo.obj",
+      "vertices": 226051,
+      "faces": 451784
+    }
+  ]
+}

@@ -167,6 +167,17 @@
                     <p id="fileStatus" class="mt-1 min-h-4 text-[10px] text-studio-amber" aria-live="polite"></p>
                 </div>
 
+                <div class="rounded-xl border border-studio-border bg-studio-card p-2.5 space-y-1.5">
+                    <label for="scanCatalogSelect" class="block text-[10px] font-semibold text-studio-amber">Catálogo público de escaneos 3D</label>
+                    <div class="flex gap-1.5">
+                        <select id="scanCatalogSelect" class="min-w-0 flex-1 bg-studio-bg border border-studio-border rounded p-1.5 text-[10px] text-slate-200" disabled>
+                            <option value="">Cargando catálogo…</option>
+                        </select>
+                        <button id="btnLoadCatalogScan" type="button" class="shrink-0 rounded border border-studio-cyan/40 bg-studio-bg px-2 py-1 text-[10px] text-studio-cyan hover:border-studio-cyan disabled:opacity-40" disabled>Cargar</button>
+                    </div>
+                    <p id="catalogStatus" class="min-h-4 text-[9px] leading-relaxed text-slate-500" aria-live="polite">Los escaneos se descargan desde GitHub Pages al seleccionarlos.</p>
+                </div>
+
                 <!-- Presets -->
                 <div>
                     <label class="text-[10px] font-semibold text-slate-400 block mb-1">Preajustes Geológicos Proposicionales:</label>
@@ -754,6 +765,7 @@
             init3DScene();
             initAudioContext();
             setupEventListeners();
+            initScanCatalog();
             loadPreset('strata');
             animate();
         });
@@ -861,6 +873,67 @@
         }
 
         // 3. FILE PARSERS (.OBJ, .MTL, .STL, .PLY, .XYZ)
+        async function initScanCatalog() {
+            const select = document.getElementById('scanCatalogSelect');
+            const button = document.getElementById('btnLoadCatalogScan');
+            const status = document.getElementById('catalogStatus');
+
+            try {
+                const catalogUrl = new URL('3DSCANS/catalog.json', document.baseURI);
+                const response = await fetch(catalogUrl);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const catalog = await response.json();
+                if (!Array.isArray(catalog.models) || catalog.models.length === 0) {
+                    throw new Error('El catálogo no contiene modelos.');
+                }
+
+                for (const model of catalog.models) {
+                    if (typeof model.file !== 'string' || model.file !== model.file.split(/[\\/]/).pop() ||
+                        !model.file.toLowerCase().endsWith('.obj') || typeof model.name !== 'string') {
+                        throw new Error('El catálogo contiene una entrada inválida.');
+                    }
+                    const option = new Option(`${model.name} · ${Number(model.vertices).toLocaleString()} vértices`, model.file);
+                    select.add(option);
+                }
+                select.disabled = false;
+                button.disabled = false;
+                status.textContent = `${catalog.models.length} escaneos disponibles. Cada modelo se descarga solo cuando lo eliges.`;
+            } catch (error) {
+                select.innerHTML = '<option value="">Catálogo online no disponible</option>';
+                status.textContent = 'Para usar el catálogo público, abre Wavstrata desde GitHub Pages. También puedes cargar archivos locales arriba.';
+                console.error('No se pudo cargar el catálogo público de escaneos.', error);
+            }
+        }
+
+        async function loadCatalogScan() {
+            const select = document.getElementById('scanCatalogSelect');
+            const button = document.getElementById('btnLoadCatalogScan');
+            const status = document.getElementById('catalogStatus');
+            const filename = select.value;
+            if (!filename) return;
+            if (filename !== filename.split(/[\\/]/).pop() || !filename.toLowerCase().endsWith('.obj')) {
+                status.textContent = 'El archivo seleccionado no es una entrada válida del catálogo.';
+                return;
+            }
+
+            button.disabled = true;
+            status.textContent = 'Descargando el escaneo seleccionado…';
+            try {
+                const encodedPath = filename.split('/').map(encodeURIComponent).join('/');
+                const modelUrl = new URL(`3DSCANS/${encodedPath}`, document.baseURI);
+                const response = await fetch(modelUrl);
+                if (!response.ok) throw new Error(`No se pudo descargar ${filename} (HTTP ${response.status}).`);
+                const model = new File([await response.blob()], filename.split('/').pop(), { type: 'text/plain' });
+                status.textContent = 'Descarga completa; interpretando el escaneo…';
+                handleFiles([model]);
+            } catch (error) {
+                status.textContent = `Error al cargar el escaneo: ${error.message}`;
+                console.error('No se pudo cargar el escaneo del catálogo público.', error);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
         function handleFiles(files) {
             let objFile = null, mtlFile = null, stlFile = null, xyzFile = null;
             loadedMaterials = null;
@@ -2106,6 +2179,7 @@
             const dropZone = document.getElementById('dropZone');
             const fileInput = document.getElementById('fileInput');
 
+            document.getElementById('btnLoadCatalogScan').addEventListener('click', loadCatalogScan);
             dropZone.addEventListener('click', () => fileInput.click());
             fileInput.addEventListener('change', (e) => {
                 if (e.target.files.length > 0) handleFiles(e.target.files);

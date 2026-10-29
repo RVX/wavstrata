@@ -14,6 +14,10 @@ The screenshot shows the app running with the **Dark Ambient** profile, 18 voice
 
 [WAVSTRATA](https://rvx.github.io/wavstrata/Wavstrata.html)
 
+### Shared 3D scan catalog
+
+The online app includes a public catalog of the five scans in `3DSCANS/`. Choose a scan and press **Cargar**; the app downloads only that model from GitHub Pages and then processes it in the browser. The catalog is about **150 MiB** in total. These scan files are public and can be accessed or downloaded by anyone.
+
 ### Try it locally
 
 1. Download `Wavstrata.html`.
@@ -26,7 +30,7 @@ No build step, package installation, account, or server is required for local us
 
 ## Workflow
 
-1. Open a sample preset or load a supported terrain model.
+1. In the online app, choose a scan from the public 3D catalog and press **Cargar**, or open a sample preset/load a supported local model.
 2. Inspect the surface and adjust position, axis rotations, or crop bounds.
 3. Choose a sound profile:
    - **Terrain** maps the geometry into the standard synthesis options.
@@ -40,6 +44,7 @@ The metadata sidecar records the audio format, sound settings, model name and tr
 ## Features
 
 - Interactive Three.js 3D terrain and point-cloud viewer.
+- Public catalog of five OBJ scans, downloaded one at a time from GitHub Pages.
 - OBJ, STL, PLY, and XYZ input support; PLY support is for ASCII files.
 - Terrain, strata-drone, and configurable dark-ambient sound profiles.
 - Audio preview controls, canyon reverb with mix, pre-delay and decay settings, plus a low-pass filter.
@@ -48,7 +53,7 @@ The metadata sidecar records the audio format, sound settings, model name and tr
 
 ## Privacy and practical notes
 
-- Wavstrata has no server or analytics backend. Models are processed in the browser; site metadata is stored in that browser's local storage unless exported.
+- Wavstrata has no server or analytics backend. Models are processed in the browser; site metadata is stored in that browser's local storage unless exported. The five scans in `3DSCANS/` are hosted publicly on GitHub Pages.
 - The page loads third-party libraries and fonts from CDNs, so an internet connection is needed. Avoid entering sensitive site information on a shared device.
 - Large geometry files and long, high-resolution drone renders need more browser memory and processing time. Start with a preset or a shorter duration if a device struggles.
 - The WAV contains the generated synthesis buffer. Playback-only controls such as the canyon reverb, low-pass filter, and master volume are not baked into the exported audio; the JSON sidecar records the reverb settings.
@@ -58,6 +63,7 @@ The metadata sidecar records the audio format, sound settings, model name and tr
 - `Wavstrata.html` — the standalone application.
 - `wavstrata-screenshot.png` — screenshot of the running application.
 - `README.md` — usage and GitHub Pages instructions.
+- `3DSCANS/` — public OBJ scan catalog and its `catalog.json` index.
 
 ## Contributing
 
@@ -67,9 +73,7 @@ Issues and pull requests are welcome — this is meant to be a small, readable r
 
 If this tool is useful in an academic or creative context, a citation or acknowledgment along these lines is appreciated:
 
-    Mazon, V. (2026). Wavstrata Superficies geológicas, metadatos espaciales, sonificación y 
-
-Toolkit [Software].
+    Mazon, V. (2026). Wavstrata Superficies geológicas, metadatos espaciales, sonificación y Toolkit [Software].
 
 ## License
 
