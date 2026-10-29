@@ -100,6 +100,23 @@
         .transform-nudge, .transform-turn { color: #d6c2aa; background: #120a07; border: 1px solid #493021; border-radius: .3rem; min-width: 1.25rem; padding: .1rem .2rem; font-size: .6rem; line-height: 1rem; }
         .transform-nudge:hover, .transform-turn:hover { color: #f1b44d; border-color: #e8a24b; }
         #threeContainer canvas { touch-action: none; }
+        .operation-status {
+            border: 1px solid #e8a24b;
+            border-radius: .65rem;
+            background: linear-gradient(110deg, rgba(89, 46, 22, .95), rgba(44, 27, 16, .96));
+            color: #fff1d8;
+            box-shadow: 0 0 18px rgba(232, 162, 75, .16);
+        }
+        .operation-status.is-error { border-color: #f07867; background: #351713; }
+        .operation-status.is-success { border-color: #d3a94f; background: #302312; }
+        .operation-status[hidden] { display: none; }
+        .operation-progress-track { height: .55rem; overflow: hidden; border-radius: 999px; background: #180e09; border: 1px solid rgba(255, 214, 155, .25); }
+        .operation-progress-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #f3b45e, #ffdb78, #f07836); box-shadow: 0 0 12px rgba(255, 190, 83, .55); transition: width .2s ease; }
+        .operation-progress-fill.is-indeterminate { width: 38%; animation: operation-progress-sweep 1.15s ease-in-out infinite alternate; }
+        @keyframes operation-progress-sweep { from { transform: translateX(-8%); } to { transform: translateX(175%); } }
+        .operation-spinner { width: .8rem; height: .8rem; flex: none; border: 2px solid rgba(255, 224, 181, .3); border-top-color: #ffcf69; border-radius: 50%; animation: operation-spin .75s linear infinite; }
+        .operation-spinner.is-static { animation: none; border-color: #ffcf69; }
+        @keyframes operation-spin { to { transform: rotate(360deg); } }
         @media (max-width: 767px) {
             body.h-screen { height: auto; min-height: 100vh; overflow: auto; }
             body .app-workspace { display: block; overflow: visible; }
@@ -175,7 +192,18 @@
                         </select>
                         <button id="btnLoadCatalogScan" type="button" class="shrink-0 rounded border border-studio-cyan/40 bg-studio-bg px-2 py-1 text-[10px] text-studio-cyan hover:border-studio-cyan disabled:opacity-40" disabled>Cargar</button>
                     </div>
-                    <p id="catalogStatus" class="min-h-4 text-[9px] leading-relaxed text-slate-500" aria-live="polite">Los escaneos se descargan desde GitHub Pages al seleccionarlos.</p>
+                    <div id="catalogStatus" class="operation-status p-2" role="status" aria-live="polite" aria-atomic="true" hidden>
+                        <div class="flex items-center gap-2">
+                            <span id="catalogStatusSpinner" class="operation-spinner" aria-hidden="true"></span>
+                            <span id="catalogStatusMessage" class="flex-1 text-[11px] font-semibold">Preparando escaneo…</span>
+                            <strong id="catalogStatusPercent" class="font-mono text-xs text-amber-200">0%</strong>
+                        </div>
+                        <div class="operation-progress-track mt-2" role="progressbar" aria-label="Progreso de carga del escaneo" aria-valuemin="0" aria-valuemax="100">
+                            <div id="catalogProgressBar" class="operation-progress-fill"></div>
+                        </div>
+                        <p id="catalogStatusDetail" class="mt-1 text-[10px] text-amber-100/80"></p>
+                    </div>
+                    <p id="catalogHint" class="min-h-4 text-[9px] leading-relaxed text-slate-400" aria-live="polite">Los escaneos se descargan desde GitHub Pages al seleccionarlos.</p>
                 </div>
 
                 <!-- Presets -->
@@ -485,9 +513,19 @@
 
                 <!-- Process Button -->
                 <button id="btnProcessSonify" class="w-full py-2 bg-gradient-to-r from-studio-cyan via-studio-amber to-studio-purple text-slate-950 font-bold rounded-xl shadow-lg hover:brightness-110 active:scale-[0.99] transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> PROCESAR Y SONIFICAR GEOLOGÍA
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span id="processButtonLabel">PROCESAR Y SONIFICAR GEOLOGÍA</span>
                 </button>
-                <p id="processingStatus" class="min-h-4 text-[10px] text-slate-400" aria-live="polite"></p>
+                <div id="processingStatus" class="operation-status mt-2 p-2.5" role="status" aria-live="polite" aria-atomic="true" hidden>
+                    <div class="flex items-center gap-2">
+                        <span id="processingSpinner" class="operation-spinner" aria-hidden="true"></span>
+                        <span id="processingMessage" class="flex-1 text-[11px] font-bold">Preparando sonificación…</span>
+                        <strong id="processingPercent" class="font-mono text-sm text-amber-200">0%</strong>
+                    </div>
+                    <div class="operation-progress-track mt-2" role="progressbar" aria-label="Avance estimado de sonificación" aria-valuemin="0" aria-valuemax="100">
+                        <div id="processingProgressBar" class="operation-progress-fill"></div>
+                    </div>
+                    <p id="processingDetail" class="mt-1 text-[10px] leading-relaxed text-amber-100/80"></p>
+                </div>
             </div>
 
         </aside>
@@ -873,10 +911,54 @@
         }
 
         // 3. FILE PARSERS (.OBJ, .MTL, .STL, .PLY, .XYZ)
+        function setCatalogProgress(message, percent = null, detail = '', mode = 'loading') {
+            const status = document.getElementById('catalogStatus');
+            const messageElement = document.getElementById('catalogStatusMessage');
+            const percentElement = document.getElementById('catalogStatusPercent');
+            const progressBar = document.getElementById('catalogProgressBar');
+            const spinner = document.getElementById('catalogStatusSpinner');
+            const progressTrack = progressBar.parentElement;
+
+            status.hidden = false;
+            status.setAttribute('aria-busy', String(mode === 'loading'));
+            status.classList.toggle('is-error', mode === 'error');
+            status.classList.toggle('is-success', mode === 'success');
+            messageElement.textContent = message;
+            document.getElementById('catalogStatusDetail').textContent = detail;
+            spinner.classList.toggle('is-static', mode !== 'loading');
+            progressBar.classList.toggle('is-indeterminate', mode === 'loading' && percent === null);
+
+            if (percent === null) {
+                percentElement.textContent = mode === 'loading' ? '…' : '';
+                progressBar.style.width = mode === 'loading' ? '' : '0';
+                progressTrack.removeAttribute('aria-valuenow');
+                progressTrack.setAttribute('aria-valuetext', mode === 'loading' ? 'Progreso indeterminado' : message);
+            } else {
+                const safePercent = Math.max(0, Math.min(100, percent));
+                percentElement.textContent = `${Math.round(safePercent)}%`;
+                progressBar.style.width = `${safePercent}%`;
+                progressTrack.setAttribute('aria-valuenow', String(Math.round(safePercent)));
+                progressTrack.setAttribute('aria-valuetext', `${Math.round(safePercent)}%`);
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
+            if (bytes < 1024) return `${bytes} B`;
+            const units = ['KiB', 'MiB', 'GiB'];
+            let value = bytes / 1024;
+            let unitIndex = 0;
+            while (value >= 1024 && unitIndex < units.length - 1) {
+                value /= 1024;
+                unitIndex++;
+            }
+            return `${value.toFixed(1)} ${units[unitIndex]}`;
+        }
+
         async function initScanCatalog() {
             const select = document.getElementById('scanCatalogSelect');
             const button = document.getElementById('btnLoadCatalogScan');
-            const status = document.getElementById('catalogStatus');
+            const status = document.getElementById('catalogHint');
 
             try {
                 const catalogUrl = new URL('3DSCANS/catalog.json', document.baseURI);
@@ -893,6 +975,9 @@
                         throw new Error('El catálogo contiene una entrada inválida.');
                     }
                     const option = new Option(`${model.name} · ${Number(model.vertices).toLocaleString()} vértices`, model.file);
+                    if (Number.isSafeInteger(model.sizeBytes) && model.sizeBytes > 0) {
+                        option.dataset.sizeBytes = String(model.sizeBytes);
+                    }
                     select.add(option);
                 }
                 select.disabled = false;
@@ -908,26 +993,54 @@
         async function loadCatalogScan() {
             const select = document.getElementById('scanCatalogSelect');
             const button = document.getElementById('btnLoadCatalogScan');
-            const status = document.getElementById('catalogStatus');
             const filename = select.value;
             if (!filename) return;
             if (filename !== filename.split(/[\\/]/).pop() || !filename.toLowerCase().endsWith('.obj')) {
-                status.textContent = 'El archivo seleccionado no es una entrada válida del catálogo.';
+                setCatalogProgress('El archivo seleccionado no es una entrada válida del catálogo.', null, '', 'error');
                 return;
             }
 
             button.disabled = true;
-            status.textContent = 'Descargando el escaneo seleccionado…';
+            setCatalogProgress('Descargando el escaneo seleccionado…', null, 'Conectando con el catálogo público.', 'loading');
             try {
                 const encodedPath = filename.split('/').map(encodeURIComponent).join('/');
                 const modelUrl = new URL(`3DSCANS/${encodedPath}`, document.baseURI);
                 const response = await fetch(modelUrl);
                 if (!response.ok) throw new Error(`No se pudo descargar ${filename} (HTTP ${response.status}).`);
-                const model = new File([await response.blob()], filename.split('/').pop(), { type: 'text/plain' });
-                status.textContent = 'Descarga completa; interpretando el escaneo…';
-                handleFiles([model], true);
+                const contentLength = Number(response.headers.get('content-length'));
+                const catalogSize = Number(select.selectedOptions[0]?.dataset.sizeBytes);
+                const totalBytes = Number.isSafeInteger(catalogSize) && catalogSize > 0
+                    ? catalogSize
+                    : Number.isFinite(contentLength) && contentLength > 0 ? contentLength : null;
+                let modelBlob;
+
+                if (response.body) {
+                    const reader = response.body.getReader();
+                    const chunks = [];
+                    let receivedBytes = 0;
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        receivedBytes += value.byteLength;
+                        const percent = totalBytes ? Math.min(99, (receivedBytes / totalBytes) * 100) : null;
+                        const detail = totalBytes
+                            ? `${formatBytes(receivedBytes)} de ${formatBytes(totalBytes)} descargados`
+                            : `${formatBytes(receivedBytes)} descargados · el servidor no indicó el tamaño total`;
+                        setCatalogProgress('Descargando el escaneo seleccionado…', percent, detail, 'loading');
+                    }
+                    modelBlob = new Blob(chunks, { type: response.headers.get('content-type') || 'text/plain' });
+                } else {
+                    setCatalogProgress('Descargando el escaneo seleccionado…', null, 'El navegador está recibiendo el archivo.', 'loading');
+                    modelBlob = await response.blob();
+                }
+
+                setCatalogProgress('Descarga completa · interpretando escaneo 3D…', null, 'Leyendo vértices y preparando la geometría.', 'loading');
+                const model = new File([modelBlob], filename.split('/').pop(), { type: 'text/plain' });
+                const loaded = await handleFiles([model], true);
+                if (!loaded) return;
             } catch (error) {
-                status.textContent = `Error al cargar el escaneo: ${error.message}`;
+                setCatalogProgress(`Error al cargar el escaneo: ${error.message}`, null, 'Revisa la conexión o prueba con otro modelo.', 'error');
                 console.error('No se pudo cargar el escaneo del catálogo público.', error);
             } finally {
                 button.disabled = false;
@@ -963,7 +1076,7 @@
                 mtlReader.onerror = () => { fileStatus.textContent = 'No se pudo leer el archivo MTL.'; };
                 mtlReader.readAsText(mtlFile);
             } else if (objFile) {
-                loadOBJFile(objFile, fromCatalog);
+                return loadOBJFile(objFile, fromCatalog);
             } else if (stlFile) {
                 loadSTLFile(stlFile);
             } else if (xyzFile) {
@@ -974,8 +1087,9 @@
         }
 
         function loadOBJFile(file, fromCatalog = false) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
                 try {
                     const objLoader = new THREE.OBJLoader();
                     if (loadedMaterials) objLoader.setMaterials(loadedMaterials);
@@ -999,23 +1113,30 @@
                         state.needsCameraFit = true;
                         document.getElementById('fileStatus').textContent = `Cargado: ${file.name}`;
                         document.getElementById('modelInfoTag').textContent = `${(coords.length / 3).toLocaleString()} Vértices`;
-                        if (fromCatalog) document.getElementById('catalogStatus').textContent = 'Escaneo cargado desde el catálogo público.';
+                        if (fromCatalog) {
+                            setCatalogProgress('Escaneo cargado desde el catálogo público.', 100, `${(coords.length / 3).toLocaleString()} vértices · geometría lista para explorar.`, 'success');
+                        }
                         applyTransformsAndProcess();
+                        resolve(true);
                     } else {
                         document.getElementById('fileStatus').textContent = 'El OBJ no contiene geometría triangular.';
-                        if (fromCatalog) document.getElementById('catalogStatus').textContent = 'El escaneo seleccionado no contiene geometría triangular.';
+                        if (fromCatalog) setCatalogProgress('El escaneo seleccionado no contiene geometría triangular.', null, 'Selecciona otro modelo del catálogo.', 'error');
+                        resolve(false);
                     }
                 } catch (error) {
                     document.getElementById('fileStatus').textContent = `Error en OBJ: ${error.message}`;
-                    if (fromCatalog) document.getElementById('catalogStatus').textContent = `Error al interpretar el escaneo: ${error.message}`;
+                    if (fromCatalog) setCatalogProgress(`Error al interpretar el escaneo: ${error.message}`, null, 'El archivo no pudo convertirse en una geometría válida.', 'error');
                     console.error('No se pudo interpretar el archivo OBJ seleccionado.', error);
+                    resolve(false);
                 }
-            };
-            reader.onerror = () => {
-                document.getElementById('fileStatus').textContent = 'No se pudo leer el archivo OBJ.';
-                if (fromCatalog) document.getElementById('catalogStatus').textContent = 'No se pudo leer el archivo OBJ descargado.';
-            };
-            reader.readAsText(file);
+                };
+                reader.onerror = () => {
+                    document.getElementById('fileStatus').textContent = 'No se pudo leer el archivo OBJ.';
+                    if (fromCatalog) setCatalogProgress('No se pudo leer el archivo OBJ descargado.', null, 'Vuelve a intentarlo.', 'error');
+                    resolve(false);
+                };
+                reader.readAsText(file);
+            });
         }
 
         function loadSTLFile(file) {
@@ -1440,29 +1561,43 @@
                 state.processTimeout = null;
             }
             stopPlayback();
-            const status = document.getElementById('processingStatus');
-            status.textContent = 'Procesando audio...';
+            const processButton = document.getElementById('btnProcessSonify');
+            processButton.disabled = true;
+            document.getElementById('processButtonLabel').textContent = 'PROCESANDO SONIFICACIÓN…';
+            setProcessingProgress(processId, 0, 'Preparando sonificación…', 'Analizando la geometría y los parámetros seleccionados.');
             try {
                 state.bufferA = null;
                 state.bufferB = null;
                 renderCanvasOptionA();
                 renderCanvasOptionB();
-                const bufferA = await generateAudioOptionA();
+                setProcessingProgress(processId, 3, 'Generando audio · Opción A', 'Analizando elevaciones y sintetizando la primera pista.');
+                const bufferA = await generateAudioOptionA((progress, stage, detail, indeterminate = false) => {
+                    setProcessingProgress(processId, 3 + progress * 43, `Opción A · ${stage}`, detail, indeterminate);
+                });
                 if (processId !== state.processId) return;
                 state.bufferA = bufferA;
                 renderCanvasOptionA();
                 renderCanvasOptionB();
-                const bufferB = await generateAudioOptionB();
+                setProcessingProgress(processId, 48, 'Generando audio · Opción B', 'Preparando el espectrograma y los armónicos.');
+                const bufferB = await generateAudioOptionB((progress, stage, detail, indeterminate = false) => {
+                    setProcessingProgress(processId, 48 + progress * 43, `Opción B · ${stage}`, detail, indeterminate);
+                });
                 if (processId !== state.processId) return;
                 state.bufferB = bufferB;
+                setProcessingProgress(processId, 96, 'Actualizando visualizaciones…', 'Las dos pistas están generadas; preparando las vistas de audio.');
                 renderCanvasOptionB();
-                status.textContent = '';
+                setProcessingProgress(processId, 100, 'Sonificación lista', 'Opción A y Opción B están disponibles para escuchar y exportar.', false, 'success');
             } catch (error) {
                 if (processId !== state.processId) return;
                 state.bufferA = null;
                 state.bufferB = null;
-                status.textContent = `Error al procesar el audio: ${error.message}`;
+                setProcessingProgress(processId, 0, `Error al procesar el audio: ${error.message}`, 'Corrige el problema e inténtalo de nuevo.', false, 'error');
                 console.error('No se pudo procesar la sonificación.', error);
+            } finally {
+                if (processId === state.processId) {
+                    processButton.disabled = false;
+                    document.getElementById('processButtonLabel').textContent = 'PROCESAR Y SONIFICAR GEOLOGÍA';
+                }
             }
         }
 
@@ -1546,27 +1681,39 @@
             };
         }
 
-        async function generateAudioOptionA() {
+        async function generateAudioOptionA(progressCallback = () => {}) {
             const points = state.transformedVertices, sampleRate = 44100;
             const numSamples = sampleRate * state.duration;
             const isComplexDrone = isAtmosphericProfile(state.soundProfile);
             const buffer = state.audioCtx.createBuffer(isComplexDrone ? 2 : 1, numSamples, sampleRate);
             const channel = buffer.getChannelData(0);
 
-            if (points.length === 0) return buffer;
+            if (points.length === 0) {
+                progressCallback(1, 'Pista vacía', 'No hay vértices dentro del recorte.');
+                return buffer;
+            }
 
             const profileBins = 2048;
             const profileSums = new Float64Array(profileBins);
             const profileCounts = new Uint32Array(profileBins);
             let minX = Infinity, maxX = -Infinity;
-            for (let i = 0; i < points.length; i += 3) {
+            const pointCount = points.length / 3;
+            for (let i = 0, vertex = 0; i < points.length; i += 3, vertex++) {
                 minX = Math.min(minX, points[i]);
                 maxX = Math.max(maxX, points[i]);
+                if (vertex > 0 && vertex % 16384 === 0) {
+                    progressCallback((vertex / pointCount) * 0.1, 'Midiendo geometría', `${vertex.toLocaleString()} de ${pointCount.toLocaleString()} vértices analizados.`);
+                    await yieldToBrowser();
+                }
             }
-            for (let i = 0; i < points.length; i += 3) {
+            for (let i = 0, vertex = 0; i < points.length; i += 3, vertex++) {
                 const x = Math.max(0, Math.min(profileBins - 1, Math.floor(((points[i] - minX) / (maxX - minX || 1)) * (profileBins - 1))));
                 profileSums[x] += points[i + 1];
                 profileCounts[x]++;
+                if (vertex > 0 && vertex % 16384 === 0) {
+                    progressCallback(0.1 + (vertex / pointCount) * 0.2, 'Extrayendo el perfil topográfico', `${vertex.toLocaleString()} de ${pointCount.toLocaleString()} vértices procesados.`);
+                    await yieldToBrowser();
+                }
             }
             let rawAmps = new Float32Array(profileBins);
             let lastElevation = 0;
@@ -1626,7 +1773,12 @@
                         + Math.sin(phase * 2) * overtoneLevel * 0.18
                         + Math.sin(phase * 3) * upperLevel * 0.1;
                     channel[i] = drone * envelope * 0.72;
+                    if (i > 0 && i % 65536 === 0) {
+                        progressCallback(0.3 + (i / numSamples) * 0.7, 'Sintetizando drone estratigráfico', `${Math.floor((i / numSamples) * 100)}% de las muestras calculadas.`);
+                        await yieldToBrowser();
+                    }
                 }
+                progressCallback(1, 'Audio A generado', 'Preparando el siguiente proceso.');
                 return buffer;
             }
 
@@ -1699,7 +1851,10 @@
                     oscillator.start();
                     oscillator.stop(state.duration);
                 }
-                return offlineContext.startRendering();
+                progressCallback(0.95, 'Renderizado final en navegador', 'El motor de audio está componiendo las voces; esta fase no proporciona un porcentaje exacto.', true);
+                const renderedBuffer = await offlineContext.startRendering();
+                progressCallback(1, 'Audio A generado', 'La pista estéreo está lista.');
+                return renderedBuffer;
             }
 
             for (let i = 0; i < numSamples; i++) {
@@ -1734,31 +1889,44 @@
                 else if (waveType === 'fm') sample = Math.sin(phase + Math.sin(phase * 2.5) * 2.0);
 
                 channel[i] = sample * (0.3 + amp * 0.5) * env;
+                if (i > 0 && i % 65536 === 0) {
+                    progressCallback(0.3 + (i / numSamples) * 0.7, 'Sintetizando señal', `${Math.floor((i / numSamples) * 100)}% de las muestras calculadas.`);
+                    await yieldToBrowser();
+                }
             }
+            progressCallback(1, 'Audio A generado', 'Preparando el siguiente proceso.');
             return buffer;
         }
 
-        async function generateAudioOptionB() {
+        async function generateAudioOptionB(progressCallback = () => {}) {
             const points = state.transformedVertices, sampleRate = 44100;
             const numSamples = sampleRate * state.duration;
-            if (points.length === 0) return state.audioCtx.createBuffer(isAtmosphericProfile(state.soundProfile) ? 2 : 1, numSamples, sampleRate);
+            if (points.length === 0) {
+                progressCallback(1, 'Pista vacía', 'No hay vértices dentro del recorte.');
+                return state.audioCtx.createBuffer(isAtmosphericProfile(state.soundProfile) ? 2 : 1, numSamples, sampleRate);
+            }
 
             const numBins = parseInt(state.optionBRes);
             const numTimeSteps = isAtmosphericProfile(state.soundProfile) ? 256 : 100;
             const grid = Array.from({ length: numBins }, () => new Float32Array(numTimeSteps));
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             let minZ = Infinity, maxZ = -Infinity;
-            for (let i = 0; i < points.length; i += 3) {
+            const pointCount = points.length / 3;
+            for (let i = 0, vertex = 0; i < points.length; i += 3, vertex++) {
                 minX = Math.min(minX, points[i]);
                 maxX = Math.max(maxX, points[i]);
                 minY = Math.min(minY, points[i + 1]);
                 maxY = Math.max(maxY, points[i + 1]);
                 minZ = Math.min(minZ, points[i + 2]);
                 maxZ = Math.max(maxZ, points[i + 2]);
+                if (vertex > 0 && vertex % 16384 === 0) {
+                    progressCallback((vertex / pointCount) * 0.25, 'Midiendo geometría', `${vertex.toLocaleString()} de ${pointCount.toLocaleString()} vértices analizados.`);
+                    await yieldToBrowser();
+                }
             }
             const xRange = maxX - minX || 1, yRange = maxY - minY || 1, zRange = maxZ - minZ || 1;
 
-            for (let i = 0; i < points.length; i += 3) {
+            for (let i = 0, vertex = 0; i < points.length; i += 3, vertex++) {
                 let u = (points[i] - minX) / xRange;
                 let v = (points[i + 2] - minZ) / zRange;
                 let elev = (points[i + 1] - minY) / yRange;
@@ -1767,6 +1935,10 @@
                 fIdx = Math.min(numBins - 1, fIdx);
                 if (tIdx >= 0 && tIdx < numTimeSteps && fIdx >= 0 && fIdx < numBins) {
                     grid[fIdx][tIdx] = Math.max(grid[fIdx][tIdx], elev);
+                }
+                if (vertex > 0 && vertex % 16384 === 0) {
+                    progressCallback(0.25 + (vertex / pointCount) * 0.4, 'Construyendo mapa de bandas', `${vertex.toLocaleString()} de ${pointCount.toLocaleString()} vértices distribuidos.`);
+                    await yieldToBrowser();
                 }
             }
 
@@ -1820,8 +1992,13 @@
                     panner.connect(masterGain);
                     oscillator.start();
                     oscillator.stop(state.duration);
+                    progressCallback(0.65 + ((voice + 1) / voices.length) * 0.28, 'Configurando voces armónicas', `${voice + 1} de ${voices.length} voces programadas.`);
+                    await yieldToBrowser();
                 }
-                return offlineContext.startRendering();
+                progressCallback(0.96, 'Renderizado final en navegador', 'El motor de audio está componiendo las voces; esta fase no proporciona un porcentaje exacto.', true);
+                const renderedBuffer = await offlineContext.startRendering();
+                progressCallback(1, 'Audio B generado', 'La pista estéreo está lista.');
+                return renderedBuffer;
             }
 
             const droneRatios = [0.5, 1, 1.5, 2, 3];
@@ -1849,8 +2026,15 @@
                 gain.connect(masterGain);
                 oscillator.start();
                 oscillator.stop(state.duration);
+                if ((b + 1) % 8 === 0 || b === numBins - 1) {
+                    progressCallback(0.65 + ((b + 1) / numBins) * 0.28, 'Configurando armónicos', `${b + 1} de ${numBins} bandas programadas.`);
+                    await yieldToBrowser();
+                }
             }
-            return offlineContext.startRendering();
+            progressCallback(0.96, 'Renderizado final en navegador', 'El motor de audio está componiendo las bandas; esta fase no proporciona un porcentaje exacto.', true);
+            const renderedBuffer = await offlineContext.startRendering();
+            progressCallback(1, 'Audio B generado', 'La pista está lista.');
+            return renderedBuffer;
         }
 
         // 6. CANVAS VISUALIZERS
@@ -2065,7 +2249,7 @@
         function getExportBuffer() {
             const buffer = state.activeTab === 'OptionA' ? state.bufferA : state.bufferB;
             if (!buffer) {
-                document.getElementById('processingStatus').textContent = 'Procesa el audio antes de exportarlo.';
+                setProcessingNotice('Procesa el audio antes de exportarlo.', 'error');
                 return null;
             }
             return buffer;
@@ -2081,19 +2265,15 @@
             const buffer = getExportBuffer();
             if (!buffer) return;
             const button = document.getElementById('btnExportWav');
-            const status = document.getElementById('processingStatus');
             button.disabled = true;
-            status.textContent = 'Preparando WAV...';
+            setProcessingNotice('Preparando archivo WAV…', 'loading');
             try {
                 const { bitDepth, stem } = getAudioExportDetails(buffer);
                 const wavBlob = new Blob([bufferToWav(buffer, bitDepth)], { type: 'audio/wav' });
                 downloadFile(wavBlob, `${stem}.wav`);
-                status.textContent = 'WAV descargado. Usa JSON para descargar sus metadatos.';
-                window.setTimeout(() => {
-                    if (status.textContent === 'WAV descargado. Usa JSON para descargar sus metadatos.') status.textContent = '';
-                }, 6000);
+                setProcessingNotice('WAV descargado. Usa JSON para descargar sus metadatos.');
             } catch (error) {
-                status.textContent = `Error al exportar el WAV: ${error.message}`;
+                setProcessingNotice(`Error al exportar el WAV: ${error.message}`, 'error');
                 console.error('No se pudo exportar el WAV de Wavstrata.', error);
             }
             button.disabled = false;
@@ -2102,17 +2282,13 @@
         function exportAudioJson() {
             const buffer = getExportBuffer();
             if (!buffer) return;
-            const status = document.getElementById('processingStatus');
             try {
                 const { stem, manifest } = getAudioExportDetails(buffer);
                 const jsonBlob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
                 downloadFile(jsonBlob, `${stem}.metadata.json`);
-                status.textContent = 'JSON de metadatos descargado con el mismo nombre base que el WAV.';
-                window.setTimeout(() => {
-                    if (status.textContent === 'JSON de metadatos descargado con el mismo nombre base que el WAV.') status.textContent = '';
-                }, 6000);
+                setProcessingNotice('JSON de metadatos descargado con el mismo nombre base que el WAV.');
             } catch (error) {
-                status.textContent = `Error al exportar el JSON: ${error.message}`;
+                setProcessingNotice(`Error al exportar el JSON: ${error.message}`, 'error');
                 console.error('No se pudo exportar el JSON de metadatos de audio de Wavstrata.', error);
             }
         }
@@ -2481,6 +2657,57 @@
             document.querySelectorAll('.vmode-btn').forEach(b => b.className = 'vmode-btn text-slate-400 hover:text-white px-2 py-1 rounded transition text-xs');
             btn.className = 'vmode-btn bg-studio-cyan text-slate-950 px-2 py-1 rounded font-semibold transition text-xs';
             update3DGeometry();
+        }
+
+        function setProcessingProgress(processId, percent, message, detail = '', indeterminate = false, mode = 'loading') {
+            if (processId !== state.processId) return;
+            const status = document.getElementById('processingStatus');
+            const progressBar = document.getElementById('processingProgressBar');
+            const progressTrack = progressBar.parentElement;
+            const spinner = document.getElementById('processingSpinner');
+            status.hidden = false;
+            status.setAttribute('aria-busy', String(mode === 'loading'));
+            status.classList.toggle('is-error', mode === 'error');
+            status.classList.toggle('is-success', mode === 'success');
+            document.getElementById('processingMessage').textContent = message;
+            document.getElementById('processingDetail').textContent = detail;
+            spinner.classList.toggle('is-static', mode !== 'loading');
+            progressBar.classList.toggle('is-indeterminate', mode === 'loading' && indeterminate);
+
+            if (indeterminate) {
+                document.getElementById('processingPercent').textContent = '…';
+                progressBar.style.width = '';
+                progressTrack.removeAttribute('aria-valuenow');
+                progressTrack.setAttribute('aria-valuetext', 'El navegador está renderizando audio; no hay porcentaje disponible para esta etapa.');
+            } else {
+                const safePercent = Math.max(0, Math.min(100, percent));
+                document.getElementById('processingPercent').textContent = `${Math.round(safePercent)}%`;
+                progressBar.style.width = `${safePercent}%`;
+                progressTrack.setAttribute('aria-valuenow', String(Math.round(safePercent)));
+                progressTrack.setAttribute('aria-valuetext', `${Math.round(safePercent)}%`);
+            }
+        }
+
+        function setProcessingNotice(message, mode = 'success') {
+            const status = document.getElementById('processingStatus');
+            const progressBar = document.getElementById('processingProgressBar');
+            const progressTrack = progressBar.parentElement;
+            status.hidden = false;
+            status.setAttribute('aria-busy', 'false');
+            status.classList.toggle('is-error', mode === 'error');
+            status.classList.toggle('is-success', mode === 'success');
+            document.getElementById('processingMessage').textContent = message;
+            document.getElementById('processingDetail').textContent = '';
+            document.getElementById('processingPercent').textContent = '';
+            document.getElementById('processingSpinner').classList.add('is-static');
+            progressBar.classList.remove('is-indeterminate');
+            progressBar.style.width = '0';
+            progressTrack.removeAttribute('aria-valuenow');
+            progressTrack.setAttribute('aria-valuetext', message);
+        }
+
+        function yieldToBrowser() {
+            return new Promise(resolve => window.setTimeout(resolve, 0));
         }
 
         function switchTab(tab) {

@@ -4,31 +4,36 @@
       "name": "Alvaro · esquina spectral",
       "file": "Alvaro_esquina_spectral.obj",
       "vertices": 243386,
-      "faces": 486500
+      "faces": 486500,
+      "sizeBytes": 32091547
     },
     {
       "name": "Álvaro · fuera",
       "file": "A\u0301lvaro_fuera.obj",
       "vertices": 277202,
-      "faces": 553357
+      "faces": 553357,
+      "sizeBytes": 36858717
     },
     {
       "name": "Álvaro · pila y agujero",
       "file": "A\u0301lvaro_pila_agujero.obj",
       "vertices": 241474,
-      "faces": 482293
+      "faces": 482293,
+      "sizeBytes": 31798952
     },
     {
       "name": "Pisadas secas",
       "file": "Pisadas_secas.obj",
       "vertices": 203626,
-      "faces": 406692
+      "faces": 406692,
+      "sizeBytes": 26643592
     },
     {
       "name": "Pisoteo",
       "file": "Pisoteo.obj",
       "vertices": 226051,
-      "faces": 451784
+      "faces": 451784,
+      "sizeBytes": 29645835
     }
   ]
 }

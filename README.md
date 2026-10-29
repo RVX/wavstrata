@@ -57,6 +57,7 @@ Los perfiles disponibles son **Terreno**, **Drone estratigráfico**, **Drone osc
 - Visor interactivo 3D de terreno y nubes de puntos basado en Three.js.
 - Vista de nube de puntos diferenciada. Las mallas densas se muestrean para su visualización; la geometría de resolución completa se conserva para la vista de superficie y la sonificación.
 - Catálogo público de cinco escaneos OBJ; cada modelo se descarga individualmente desde GitHub Pages.
+- Indicadores de carga destacados con porcentaje y tamaño descargado para los escaneos del catálogo; la interpretación y el renderizado de audio muestran su etapa actual.
 - Compatibilidad con archivos OBJ, STL, PLY y XYZ; los archivos PLY deben estar en formato ASCII.
 - Seis perfiles de sonificación: Terreno, Drone estratigráfico, Drone oscuro, Abismo, Pulso tectónico y Coro mineral.
 - Controles de previsualización de audio, reverberación de cañón con ajustes de mezcla, predemora y decaimiento, y filtro de paso bajo.
