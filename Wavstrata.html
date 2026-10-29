@@ -925,7 +925,7 @@
                 if (!response.ok) throw new Error(`No se pudo descargar ${filename} (HTTP ${response.status}).`);
                 const model = new File([await response.blob()], filename.split('/').pop(), { type: 'text/plain' });
                 status.textContent = 'Descarga completa; interpretando el escaneo…';
-                handleFiles([model]);
+                handleFiles([model], true);
             } catch (error) {
                 status.textContent = `Error al cargar el escaneo: ${error.message}`;
                 console.error('No se pudo cargar el escaneo del catálogo público.', error);
@@ -934,7 +934,7 @@
             }
         }
 
-        function handleFiles(files) {
+        function handleFiles(files, fromCatalog = false) {
             let objFile = null, mtlFile = null, stlFile = null, xyzFile = null;
             loadedMaterials = null;
 
@@ -954,7 +954,7 @@
                         const mtlLoader = new THREE.MTLLoader();
                         loadedMaterials = mtlLoader.parse(e.target.result);
                         loadedMaterials.preload();
-                        loadOBJFile(objFile);
+                        loadOBJFile(objFile, fromCatalog);
                     } catch (error) {
                         fileStatus.textContent = `MTL error: ${error.message}`;
                         console.error('No se pudo interpretar el archivo MTL seleccionado.', error);
@@ -963,7 +963,7 @@
                 mtlReader.onerror = () => { fileStatus.textContent = 'No se pudo leer el archivo MTL.'; };
                 mtlReader.readAsText(mtlFile);
             } else if (objFile) {
-                loadOBJFile(objFile);
+                loadOBJFile(objFile, fromCatalog);
             } else if (stlFile) {
                 loadSTLFile(stlFile);
             } else if (xyzFile) {
@@ -973,7 +973,7 @@
             }
         }
 
-        function loadOBJFile(file) {
+        function loadOBJFile(file, fromCatalog = false) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -999,16 +999,22 @@
                         state.needsCameraFit = true;
                         document.getElementById('fileStatus').textContent = `Cargado: ${file.name}`;
                         document.getElementById('modelInfoTag').textContent = `${(coords.length / 3).toLocaleString()} Vértices`;
+                        if (fromCatalog) document.getElementById('catalogStatus').textContent = 'Escaneo cargado desde el catálogo público.';
                         applyTransformsAndProcess();
                     } else {
                         document.getElementById('fileStatus').textContent = 'El OBJ no contiene geometría triangular.';
+                        if (fromCatalog) document.getElementById('catalogStatus').textContent = 'El escaneo seleccionado no contiene geometría triangular.';
                     }
                 } catch (error) {
                     document.getElementById('fileStatus').textContent = `Error en OBJ: ${error.message}`;
+                    if (fromCatalog) document.getElementById('catalogStatus').textContent = `Error al interpretar el escaneo: ${error.message}`;
                     console.error('No se pudo interpretar el archivo OBJ seleccionado.', error);
                 }
             };
-            reader.onerror = () => { document.getElementById('fileStatus').textContent = 'No se pudo leer el archivo OBJ.'; };
+            reader.onerror = () => {
+                document.getElementById('fileStatus').textContent = 'No se pudo leer el archivo OBJ.';
+                if (fromCatalog) document.getElementById('catalogStatus').textContent = 'No se pudo leer el archivo OBJ descargado.';
+            };
             reader.readAsText(file);
         }
 
