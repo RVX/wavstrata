@@ -1,82 +1,95 @@
 # Wavstrata
 
-**A browser-based geological visualization and sonification studio.**
+**Estudio de visualización geológica y sonificación que funciona en el navegador.**
 
-Wavstrata turns terrain surfaces and point clouds into an interactive 3D view and evolving sound. It is designed for sound and space exploration: users can load a model, inspect and transform its shape, experiment with sound profiles, and export an audio file with a metadata sidecar.
+Wavstrata convierte superficies del terreno y nubes de puntos en una visualización 3D interactiva y sonido evolutivo. Está diseñado para explorar el sonido y el espacio: permite cargar un modelo, examinar y transformar su forma, experimentar con perfiles sonoros y exportar audio con un archivo complementario de metadatos.
 
-![Wavstrata running with the dark ambient drone profile](./wavstrata-screenshot.png)
+![Wavstrata con el perfil de drone ambiental oscuro](./wavstrata-screenshot.png)
 
-The screenshot shows the app running with the **Dark Ambient** profile, 18 voices, a 12-cent beating setting, and 82% stereo width.
+La captura muestra la aplicación con el perfil **Drone oscuro**, 18 voces, un batimiento de 12 centésimas y una anchura estéreo del 82 %.
 
-## Open the app
+## Abrir la aplicación
 
-### Online version 
+### Versión en línea
 
-[WAVSTRATA](https://rvx.github.io/wavstrata/Wavstrata.html)
+[Abrir WAVSTRATA](https://rvx.github.io/wavstrata/Wavstrata.html)
 
-### Shared 3D scan catalog
+### Catálogo compartido de escaneos 3D
 
-The online app includes a public catalog of the five scans in `3DSCANS/`. Choose a scan and press **Cargar**; the app downloads only that model from GitHub Pages and then processes it in the browser. The catalog is about **150 MiB** in total. These scan files are public and can be accessed or downloaded by anyone.
+La aplicación en línea incluye un catálogo público con los cinco escaneos de `3DSCANS/`. Selecciona un escaneo y pulsa **Cargar**; la aplicación descarga únicamente ese modelo desde GitHub Pages y lo procesa en el navegador. El catálogo completo ocupa aproximadamente **150 MiB**. Los escaneos son públicos y cualquier persona puede acceder a ellos o descargarlos.
 
-### Try it locally
+### Uso local
 
-1. Download `Wavstrata.html`.
-2. Open it in a current version of Chrome, Edge, or Firefox.
-3. Keep an internet connection available so the page can load its visualization, interface, and icon libraries from their CDNs.
+1. Descarga `Wavstrata.html`.
+2. Ábrelo con una versión actual de Chrome, Edge o Firefox.
+3. Mantén una conexión a Internet para que la página pueda cargar desde sus CDN las bibliotecas de visualización, la interfaz y los iconos.
 
-No build step, package installation, account, or server is required for local use.
+No se necesita compilar, instalar paquetes, crear una cuenta ni iniciar un servidor.
 
+## Flujo de trabajo
 
+1. Selecciona un escaneo del catálogo público y pulsa **Cargar**, arrastra un modelo local compatible o comienza con uno de los preajustes geológicos.
+2. Examina la superficie en el visor 3D. Orbita con el ratón y ajusta la posición XYZ, la rotación de los ejes, los giros rápidos de 45°/90°/180° y los límites de recorte.
+3. Configura el motor sonoro: elige uno de los seis perfiles y ajusta la duración, el tono base, la forma de onda, la escala musical, la envolvente ADSR, el filtro (Opción A) y los armónicos (Opción B).
+4. Pulsa **Procesar y sonificar geología**. Compara las **Opciones A y B** y reproduce el resultado para escucharlo.
+5. Si lo deseas, introduce los metadatos del sitio. Selecciona PCM de 16 o 24 bits y descarga el **WAV** y el **JSON** por separado; ambos archivos comparten el mismo nombre base.
 
-## Workflow
+El archivo JSON complementario registra el formato de audio, los ajustes de sonido, el nombre y las transformaciones del modelo, los metadatos del sitio y los ajustes de reverberación usados durante la reproducción. La reverberación de cañón, el filtro de paso bajo y el volumen maestro afectan a la escucha de previsualización, pero no se aplican al WAV exportado.
 
-1. In the online app, choose a scan from the public 3D catalog and press **Cargar**, or open a sample preset/load a supported local model.
-2. Inspect the surface and adjust position, axis rotations, or crop bounds.
-3. Choose a sound profile:
-   - **Terrain** maps the geometry into the standard synthesis options.
-   - **Strata Drone** makes a slower, low-register layered drone.
-   - **Dark Ambient** offers 6–24 voices, adjustable beating/detuning, and stereo width.
-4. Compare **Option A** and **Option B**, then play the result.
-5. Add site information in the metadata panel if appropriate. Use **WAV** and **JSON** to download the audio and its matching metadata sidecar as separate files. Both filenames share the same base name; download them individually to avoid browser restrictions on multiple automatic downloads.
+## Tutorial visual
 
-The metadata sidecar records the audio format, sound settings, model name and transforms, site metadata, and the playback reverb settings. The canyon reverb, low-pass filter, and master-volume controls are for preview and are not applied to the exported WAV.
+Esta animación muestra el flujo de uso de Wavstrata: cargar y posicionar un escaneo, configurar el sonido, escucharlo y exportarlo.
 
-## Features
+![Tutorial visual animado: cargar, posicionar, configurar, escuchar y exportar](./wavstrata-tutorial.svg)
 
-- Interactive Three.js 3D terrain and point-cloud viewer.
-- Public catalog of five OBJ scans, downloaded one at a time from GitHub Pages.
-- OBJ, STL, PLY, and XYZ input support; PLY support is for ASCII files.
-- Terrain, strata-drone, and configurable dark-ambient sound profiles.
-- Audio preview controls, canyon reverb with mix, pre-delay and decay settings, plus a low-pass filter.
-- 16-bit and 24-bit PCM WAV export and its matching JSON metadata sidecar as separate downloads.
-- Site metadata saved in the current browser and exportable as JSON.
+Abre la [aplicación Wavstrata](https://rvx.github.io/wavstrata/Wavstrata.html) y sigue estos cinco pasos:
 
-## Privacy and practical notes
+1. **Cargar:** selecciona un modelo del catálogo público y pulsa **Cargar**, o arrastra un archivo OBJ, STL, PLY ASCII o XYZ.
+2. **Posicionar:** orbita con el ratón, ajusta X/Y/Z y usa los botones de giro para alinear los estratos. **Encuadrar** vuelve a centrar el modelo.
+3. **Configurar:** selecciona un perfil y experimenta con el tono, la duración, la forma de onda, la escala, la envolvente, el filtro y la cantidad de armónicos. Para empezar, prueba con una duración corta.
+4. **Escuchar:** pulsa **Procesar y sonificar geología**, compara las vistas **Opción A** y **Opción B** y reproduce el resultado. La reverberación, el filtro de paso bajo y el volumen afectan a la previsualización, no al WAV exportado.
+5. **Exportar:** selecciona la profundidad PCM y descarga el **WAV** y el **JSON** por separado. El JSON incluye los ajustes y los metadatos del sitio que hayas completado.
 
-- Wavstrata has no server or analytics backend. Models are processed in the browser; site metadata is stored in that browser's local storage unless exported. The five scans in `3DSCANS/` are hosted publicly on GitHub Pages.
-- The page loads third-party libraries and fonts from CDNs, so an internet connection is needed. Avoid entering sensitive site information on a shared device.
-- Large geometry files and long, high-resolution drone renders need more browser memory and processing time. Start with a preset or a shorter duration if a device struggles.
-- The WAV contains the generated synthesis buffer. Playback-only controls such as the canyon reverb, low-pass filter, and master volume are not baked into the exported audio; the JSON sidecar records the reverb settings.
+Los perfiles disponibles son **Terreno**, **Drone estratigráfico**, **Drone oscuro**, **Abismo**, **Pulso tectónico** y **Coro mineral**.
 
-## Files
+## Funciones
 
-- `Wavstrata.html` — the standalone application.
-- `wavstrata-screenshot.png` — screenshot of the running application.
-- `README.md` — usage and GitHub Pages instructions.
-- `3DSCANS/` — public OBJ scan catalog and its `catalog.json` index.
+- Visor interactivo 3D de terreno y nubes de puntos basado en Three.js.
+- Vista de nube de puntos diferenciada. Las mallas densas se muestrean para su visualización; la geometría de resolución completa se conserva para la vista de superficie y la sonificación.
+- Catálogo público de cinco escaneos OBJ; cada modelo se descarga individualmente desde GitHub Pages.
+- Compatibilidad con archivos OBJ, STL, PLY y XYZ; los archivos PLY deben estar en formato ASCII.
+- Seis perfiles de sonificación: Terreno, Drone estratigráfico, Drone oscuro, Abismo, Pulso tectónico y Coro mineral.
+- Controles de previsualización de audio, reverberación de cañón con ajustes de mezcla, predemora y decaimiento, y filtro de paso bajo.
+- Exportación WAV PCM de 16 y 24 bits y descarga por separado de su archivo JSON complementario con metadatos.
+- Metadatos del sitio guardados en el navegador y exportables como JSON.
 
-## Contributing
+## Privacidad y notas prácticas
 
-Issues and pull requests are welcome — this is meant to be a small, readable reference implementation for turning 3D scans data into sound, not a polished framework. Feel free to fork it, adapt it for a different scan test, or extend the sonification approach (e.g. pitch-preserving time-stretch, multi-channel stereo mixes, etc.).
+- Wavstrata no tiene servidor propio ni sistema de analítica. Los modelos se procesan en el navegador; los metadatos del sitio se guardan en el almacenamiento local de ese navegador, salvo que se exporten. Los cinco escaneos de `3DSCANS/` están alojados públicamente en GitHub Pages.
+- La página carga bibliotecas de terceros y fuentes desde CDN, por lo que necesita conexión a Internet. Evita introducir información confidencial en un dispositivo compartido.
+- Los archivos de geometría grandes y las síntesis de drones largas y de alta resolución requieren más memoria y capacidad de procesamiento. Si el dispositivo tiene dificultades, empieza con un preajuste o una duración más corta.
+- El WAV contiene el búfer de síntesis generado. Los controles que solo afectan a la reproducción —como la reverberación de cañón, el filtro de paso bajo y el volumen maestro— no se incorporan al audio exportado. El archivo JSON complementario sí registra los ajustes de reverberación.
 
-## Citation
+## Archivos
 
-If this tool is useful in an academic or creative context, a citation or acknowledgment along these lines is appreciated:
+- `Wavstrata.html` — aplicación independiente.
+- `wavstrata-screenshot.png` — captura de la aplicación.
+- `wavstrata-tutorial.svg` — guía visual animada del flujo de trabajo principal.
+- `README.md` — instrucciones de uso e información de GitHub Pages.
+- `3DSCANS/` — catálogo público de escaneos OBJ y su índice `catalog.json`.
 
-    Mazon, V. (2026). Wavstrata Superficies geológicas, metadatos espaciales, sonificación y Toolkit [Software].
+## Contribuciones
 
-## License
+Se agradecen los informes de problemas y las solicitudes de cambios. Este proyecto pretende ser una implementación de referencia pequeña y legible para convertir escaneos 3D en sonido, no un framework completo. Puedes crear una bifurcación, adaptarla a otros escaneos o ampliar el enfoque de sonificación (por ejemplo, con estiramiento temporal que conserve el tono o mezclas estéreo multicanal).
 
-Licensed under the GNU General Public License v3.0 — see LICENSE for the full text. In short: you are free to use, study, modify, and redistribute this software (including commercially), provided derivative works are also released under the GPL-3.0 and you preserve the copyright/license notices.
+## Cita
+
+Si esta herramienta te resulta útil en un contexto académico o creativo, se agradece una cita o mención similar a la siguiente:
+
+    Mazon, V. (2026). Wavstrata: superficies geológicas, metadatos espaciales, sonificación y Toolkit [Software].
+
+## Licencia
+
+Este proyecto está publicado bajo la Licencia Pública General de GNU, versión 3.0 (GPL-3.0); consulta el texto completo en `LICENSE`. En resumen: puedes usar, estudiar, modificar y redistribuir este software (incluso con fines comerciales), siempre que las obras derivadas también se publiquen bajo la GPL-3.0 y se conserven los avisos de derechos de autor y licencia.
 
 Copyright (C) 2026 Victor Mazon.

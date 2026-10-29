@@ -1,0 +1,209 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title description">
+  <title id="title">Tutorial visual animado de Wavstrata</title>
+  <desc id="description">Cinco pasos: cargar un escaneo, posicionar la geometria, configurar el sonido, generar y escuchar, y exportar WAV y JSON.</desc>
+  <defs>
+    <linearGradient id="earth" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f0bd55"/>
+      <stop offset=".48" stop-color="#cf6a3d"/>
+      <stop offset="1" stop-color="#81352e"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#21150f"/>
+      <stop offset="1" stop-color="#160e0a"/>
+    </linearGradient>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M34 0H0V34" fill="none" stroke="#38271d" stroke-width="1"/>
+    </pattern>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; }
+      .muted { fill: #a89480; }
+      .bright { fill: #f4e4ce; }
+      .tiny { font-size: 11px; }
+      .label { font-size: 13px; font-weight: 600; }
+      .step { opacity: 0; pointer-events: none; }
+      .step1 { animation: show1 25s steps(1,end) infinite; }
+      .step2 { animation: show2 25s steps(1,end) infinite; }
+      .step3 { animation: show3 25s steps(1,end) infinite; }
+      .step4 { animation: show4 25s steps(1,end) infinite; }
+      .step5 { animation: show5 25s steps(1,end) infinite; }
+      @keyframes show1 { 0%,19.99% { opacity:1 } 20%,100% { opacity:0 } }
+      @keyframes show2 { 0%,19.99% { opacity:0 } 20%,39.99% { opacity:1 } 40%,100% { opacity:0 } }
+      @keyframes show3 { 0%,39.99% { opacity:0 } 40%,59.99% { opacity:1 } 60%,100% { opacity:0 } }
+      @keyframes show4 { 0%,59.99% { opacity:0 } 60%,79.99% { opacity:1 } 80%,100% { opacity:0 } }
+      @keyframes show5 { 0%,79.99% { opacity:0 } 80%,100% { opacity:1 } }
+      .pulse { animation: pulse 1.4s ease-in-out infinite alternate; }
+      @keyframes pulse { from { opacity:.45 } to { opacity:1 } }
+      @media (prefers-reduced-motion: reduce) {
+        .step1,.step2,.step3,.step4,.step5,.pulse { animation:none; }
+        .step1 { opacity:1; }
+      }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" fill="#100a07"/>
+  <rect x="1" y="1" width="1278" height="718" rx="18" fill="none" stroke="#493021" stroke-width="2"/>
+
+  <g>
+    <path d="M27 33h28v28H27z" rx="6" fill="#342014" stroke="#bd653c"/>
+    <path d="M33 53c7-8 12-8 18 0M33 47c7-8 12-8 18 0M33 41c7-8 12-8 18 0" fill="none" stroke="url(#earth)" stroke-width="2.4" stroke-linecap="round"/>
+    <text x="66" y="47" fill="#f3e5d4" font-size="21" font-weight="700" letter-spacing=".6">WAVSTRATA</text>
+    <text x="67" y="63" class="muted" font-size="10" letter-spacing="2">GEO / AUDIO STUDIO</text>
+    <text x="1195" y="48" text-anchor="end" fill="#d39a55" font-size="12" font-weight="700" letter-spacing="1.5">TUTORIAL VISUAL · 25 S</text>
+    <path d="M22 78h1236" stroke="#493021"/>
+  </g>
+
+  <rect x="22" y="94" width="376" height="510" rx="13" fill="url(#panel)" stroke="#493021"/>
+  <rect x="414" y="94" width="844" height="510" rx="13" fill="#130d09" stroke="#493021"/>
+
+  <g>
+    <text x="43" y="122" fill="#e4a34d" class="tiny" font-weight="700" letter-spacing="1.2">1 · IMPORTAR MALLA / GEOMETRIA</text>
+    <rect x="41" y="137" width="338" height="72" rx="9" fill="#160f0b" stroke="#5b3b27"/>
+    <path d="M196 151v24m-9-9 9 9 9-9" fill="none" stroke="#db9b4c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="210" y="158" class="muted tiny">Arrastra OBJ · STL · PLY ASCII · XYZ</text>
+    <text x="210" y="176" class="muted tiny">o selecciona un archivo local</text>
+    <text x="43" y="229" class="tiny" font-weight="700" fill="#b9a58f">CATALOGO PUBLICO DE ESCANEOS 3D</text>
+    <rect x="42" y="239" width="251" height="30" rx="5" fill="#100a07" stroke="#493021"/>
+    <text x="53" y="258" class="bright tiny">Alvaro · esquina spectral · 243k vertices</text>
+    <rect x="301" y="239" width="78" height="30" rx="5" fill="#1e1711" stroke="#a95a34"/>
+    <text x="340" y="258" text-anchor="middle" fill="#eeb763" class="tiny" font-weight="700">CARGAR</text>
+
+    <path d="M41 282h338" stroke="#493021"/>
+    <text x="43" y="305" fill="#e4a34d" class="tiny" font-weight="700" letter-spacing="1.2">2 · POSICION, ROTACION Y RECORTE</text>
+    <text x="44" y="330" class="muted tiny">Posicion 3D</text>
+    <text x="357" y="330" text-anchor="end" class="muted tiny">X: 0  Y: 0  Z: 0</text>
+    <text x="44" y="351" class="muted tiny">X</text><path d="M68 348h257" stroke="#493021" stroke-width="4" stroke-linecap="round"/><circle cx="196" cy="348" r="6" fill="#d87d43"/>
+    <text x="44" y="371" class="muted tiny">Y</text><path d="M68 368h257" stroke="#493021" stroke-width="4" stroke-linecap="round"/><circle cx="196" cy="368" r="6" fill="#d87d43"/>
+    <text x="44" y="391" class="muted tiny">Z</text><path d="M68 388h257" stroke="#493021" stroke-width="4" stroke-linecap="round"/><circle cx="196" cy="388" r="6" fill="#d87d43"/>
+    <text x="44" y="414" class="muted tiny">Giros rapidos</text>
+    <g fill="#21170f" stroke="#68432b">
+      <rect x="132" y="400" width="39" height="23" rx="4"/><rect x="176" y="400" width="39" height="23" rx="4"/><rect x="220" y="400" width="39" height="23" rx="4"/><rect x="264" y="400" width="39" height="23" rx="4"/>
+    </g>
+    <g fill="#dfb278" class="tiny" text-anchor="middle"><text x="151" y="416">-90°</text><text x="195" y="416">-45°</text><text x="239" y="416">+45°</text><text x="283" y="416">+90°</text></g>
+    <text x="44" y="443" class="muted tiny">Vista: arrastra para orbitar · rueda para zoom</text>
+
+    <path d="M41 457h338" stroke="#493021"/>
+    <text x="43" y="480" fill="#e4a34d" class="tiny" font-weight="700" letter-spacing="1.2">3 · CONFIGURAR EL MOTOR SONORO</text>
+    <rect x="42" y="489" width="337" height="31" rx="5" fill="#100a07" stroke="#493021"/>
+    <text x="54" y="509" class="bright tiny">Perfil: Drone oscuro · armonicos evolutivos</text>
+    <g class="muted tiny">
+      <text x="44" y="540">Duracion</text><text x="153" y="540">Tonica</text><text x="263" y="540">Onda</text>
+      <text x="44" y="565">Envolvente ADSR</text><text x="202" y="565">Opcion A: Filtro</text>
+      <text x="44" y="587">Escala musical</text><text x="202" y="587">Opcion B: Armonicos</text>
+    </g>
+    <rect x="145" y="527" width="76" height="19" rx="4" fill="#1a120d" stroke="#493021"/>
+    <text x="183" y="541" text-anchor="middle" fill="#e6c399" font-size="9">5 s · A3</text>
+    <rect x="269" y="527" width="99" height="19" rx="4" fill="#1a120d" stroke="#493021"/>
+    <text x="318" y="541" text-anchor="middle" fill="#e6c399" font-size="9">Senoidal</text>
+    <rect x="152" y="552" width="41" height="19" rx="4" fill="#1a120d" stroke="#493021"/>
+    <text x="172" y="566" text-anchor="middle" fill="#e6c399" font-size="9">Drone</text>
+    <rect x="293" y="552" width="75" height="19" rx="4" fill="#1a120d" stroke="#493021"/>
+    <text x="331" y="566" text-anchor="middle" fill="#e6c399" font-size="9">64 armonicos</text>
+    <rect x="149" y="574" width="43" height="19" rx="4" fill="#1a120d" stroke="#493021"/>
+    <text x="170" y="588" text-anchor="middle" fill="#e6c399" font-size="9">Menor</text>
+    <rect x="293" y="574" width="75" height="19" rx="4" fill="#1a120d" stroke="#493021"/>
+    <text x="331" y="588" text-anchor="middle" fill="#e6c399" font-size="9">Suavizado</text>
+  </g>
+
+  <g>
+    <rect x="429" y="109" width="814" height="37" rx="7" fill="#19110c" stroke="#38271d"/>
+    <g class="muted tiny">
+      <text x="447" y="132">SUPERFICIE</text><text x="544" y="132">PUNTOS</text><text x="620" y="132">MALLA</text>
+      <text x="704" y="132">CAJA</text><text x="758" y="132">EJES</text><text x="805" y="132">CUADRICULA</text>
+    </g>
+    <rect x="1168" y="116" width="62" height="23" rx="5" fill="#21170f" stroke="#68432b"/>
+    <text x="1199" y="132" text-anchor="middle" fill="#d8ae7b" class="tiny">ENCUADRAR</text>
+    <rect x="429" y="155" width="814" height="432" rx="8" fill="#100b08"/>
+    <rect x="429" y="155" width="814" height="432" rx="8" fill="url(#grid)" opacity=".8"/>
+    <path d="M460 510h745M832 176v386" stroke="#8c6441" stroke-opacity=".5" stroke-dasharray="4 7"/>
+    <path d="M479 402l93-64 78 28 93-97 83 21 93-86 70 17 75-66 94 17 82-52 63 17v228l-88 47-88-29-91 63-89-31-85 45-100-31-92 34-82-32-109 52z" fill="#24150d" stroke="#dc9148" stroke-opacity=".7" stroke-width="2"/>
+    <path d="M479 426l93-64 78 28 93-97 83 21 93-86 70 17 75-66 94 17 82-52 63 17M479 450l93-64 78 28 93-97 83 21 93-86 70 17 75-66 94 17 82-52 63 17M479 474l93-64 78 28 93-97 83 21 93-86 70 17 75-66 94 17 82-52 63 17" fill="none" stroke="url(#earth)" stroke-width="2.3" opacity=".8"/>
+    <path d="M479 402l93-64 78 28 93-97 83 21 93-86 70 17 75-66 94 17 82-52 63 17" fill="none" stroke="#f0ba55" stroke-width="2.5" filter="url(#glow)"/>
+    <text x="447" y="568" fill="#a89480" class="tiny">MALLA 3D · COLORES DE ELEVACION</text>
+    <g transform="translate(1063 545)">
+      <rect width="148" height="8" rx="4" fill="url(#earth)"/>
+      <text x="0" y="24" fill="#a89480" font-size="9">BAJA (-Y)</text>
+      <text x="148" y="24" text-anchor="end" fill="#a89480" font-size="9">ALTA (+Y)</text>
+    </g>
+    <rect x="866" y="482" width="357" height="88" rx="9" fill="#1b120d" fill-opacity=".96" stroke="#67432c"/>
+    <g>
+      <rect x="877" y="490" width="158" height="25" rx="5" fill="#21170f" stroke="#68432b"/>
+      <rect x="1041" y="490" width="169" height="25" rx="5" fill="#21170f" stroke="#68432b"/>
+      <text x="956" y="507" text-anchor="middle" fill="#e1b06b" font-size="9" font-weight="700">OPCION A · PERFIL</text>
+      <text x="1125" y="507" text-anchor="middle" fill="#c6a889" font-size="9" font-weight="700">OPCION B · ESPECTRO</text>
+      <path d="M883 529c8 0 8-7 16-7s8 13 16 13 8-17 16-17 8 12 16 12 8-7 16-7 8 11 16 11 8-14 16-14 8 9 16 9 8-6 16-6 8 10 16 10 8-5 16-5 8 7 16 7 8-12 16-12 8 9 16 9 8-6 16-6 8 8 16 8" fill="none" stroke="url(#earth)" stroke-width="1.8"/>
+      <circle cx="892" cy="552" r="10" fill="#a95034"/>
+      <path d="M890 547v10l7-5z" fill="#fff1d8"/>
+      <text x="909" y="555" fill="#d9c4aa" font-size="9">PREVISUALIZAR</text>
+      <text x="1021" y="555" fill="#a89480" font-size="9">24-BIT PCM</text>
+      <rect x="1092" y="540" width="54" height="20" rx="4" fill="#21170f" stroke="#a95a34"/>
+      <rect x="1151" y="540" width="57" height="20" rx="4" fill="#21170f" stroke="#a95a34"/>
+      <text x="1119" y="554" text-anchor="middle" fill="#e6b76f" font-size="9" font-weight="700">WAV</text>
+      <text x="1179" y="554" text-anchor="middle" fill="#e6b76f" font-size="9" font-weight="700">JSON</text>
+    </g>
+  </g>
+
+  <g class="step step1">
+    <rect class="pulse" x="34" y="130" width="352" height="146" rx="13" fill="none" stroke="#f0bd55" stroke-width="3"/>
+    <path d="M386 184h34l15 15" fill="none" stroke="#f0bd55" stroke-width="2"/>
+    <rect x="447" y="174" width="374" height="93" rx="12" fill="#20140d" stroke="#bd653c" stroke-width="2"/>
+    <circle cx="477" cy="204" r="15" fill="#c56d3d"/><text x="477" y="209" text-anchor="middle" fill="#fff1d8" font-size="14" font-weight="700">1</text>
+    <text x="501" y="202" fill="#f3d9b4" font-size="15" font-weight="700">CARGA UNA SUPERFICIE</text>
+    <text x="501" y="226" class="bright" font-size="12">Elige un escaneo del catalogo y pulsa Cargar,</text>
+    <text x="501" y="245" class="bright" font-size="12">o arrastra un modelo compatible al panel.</text>
+  </g>
+  <g class="step step2">
+    <rect class="pulse" x="34" y="274" width="352" height="180" rx="13" fill="none" stroke="#f0bd55" stroke-width="3"/>
+    <path d="M386 329h34l15 15" fill="none" stroke="#f0bd55" stroke-width="2"/>
+    <rect x="447" y="310" width="405" height="104" rx="12" fill="#20140d" stroke="#bd653c" stroke-width="2"/>
+    <circle cx="477" cy="340" r="15" fill="#c56d3d"/><text x="477" y="345" text-anchor="middle" fill="#fff1d8" font-size="14" font-weight="700">2</text>
+    <text x="501" y="338" fill="#f3d9b4" font-size="15" font-weight="700">POSICIONA Y ALINEA</text>
+    <text x="501" y="362" class="bright" font-size="12">Orbita con el raton; usa los controles XYZ</text>
+    <text x="501" y="381" class="bright" font-size="12">y giros de 45° / 90° / 180°. Shift + arrastrar</text>
+    <text x="501" y="400" class="bright" font-size="12">mueve XY; Shift + Alt, Z. Encuadrar centra.</text>
+  </g>
+  <g class="step step3">
+    <rect class="pulse" x="34" y="449" width="352" height="147" rx="13" fill="none" stroke="#f0bd55" stroke-width="3"/>
+    <path d="M386 492h34l15 15" fill="none" stroke="#f0bd55" stroke-width="2"/>
+    <rect x="447" y="470" width="420" height="97" rx="12" fill="#20140d" stroke="#bd653c" stroke-width="2"/>
+    <circle cx="477" cy="500" r="15" fill="#c56d3d"/><text x="477" y="505" text-anchor="middle" fill="#fff1d8" font-size="14" font-weight="700">3</text>
+    <text x="501" y="498" fill="#f3d9b4" font-size="15" font-weight="700">DISEÑA EL SONIDO</text>
+    <text x="501" y="522" class="bright" font-size="12">Escoge uno de los 6 perfiles y ajusta tono,</text>
+    <text x="501" y="541" class="bright" font-size="12">duracion, onda, escala, ADSR, filtro y armonicos.</text>
+  </g>
+  <g class="step step4">
+    <rect class="pulse" x="855" y="476" width="380" height="70" rx="12" fill="none" stroke="#f0bd55" stroke-width="3"/>
+    <path d="M855 481h-26l-15-15" fill="none" stroke="#f0bd55" stroke-width="2"/>
+    <rect x="447" y="437" width="398" height="78" rx="12" fill="#20140d" stroke="#bd653c" stroke-width="2"/>
+    <circle cx="477" cy="467" r="15" fill="#c56d3d"/><text x="477" y="472" text-anchor="middle" fill="#fff1d8" font-size="14" font-weight="700">4</text>
+    <text x="501" y="465" fill="#f3d9b4" font-size="15" font-weight="700">GENERA Y ESCUCHA</text>
+    <text x="501" y="490" class="bright" font-size="12">Procesa; compara A/B y reproduce una vista.</text>
+  </g>
+  <g class="step step5">
+    <rect class="pulse" x="855" y="516" width="380" height="61" rx="12" fill="none" stroke="#f0bd55" stroke-width="3"/>
+    <path d="M855 531h-26l-15-15" fill="none" stroke="#f0bd55" stroke-width="2"/>
+    <rect x="447" y="443" width="398" height="91" rx="12" fill="#20140d" stroke="#bd653c" stroke-width="2"/>
+    <circle cx="477" cy="473" r="15" fill="#c56d3d"/><text x="477" y="478" text-anchor="middle" fill="#fff1d8" font-size="14" font-weight="700">5</text>
+    <text x="501" y="471" fill="#f3d9b4" font-size="15" font-weight="700">EXPORTA TU SESION</text>
+    <text x="501" y="495" class="bright" font-size="12">Elige 16 o 24-bit y descarga WAV + JSON</text>
+    <text x="501" y="514" class="bright" font-size="12">por separado; el JSON conserva los ajustes.</text>
+  </g>
+
+  <rect x="22" y="620" width="1236" height="72" rx="12" fill="#19110c" stroke="#493021"/>
+  <text x="43" y="648" fill="#e6b76f" font-size="12" font-weight="700" letter-spacing="1">DE MODELO 3D A PAISAJE SONORO</text>
+  <text x="43" y="671" class="muted" font-size="11">La animacion resume el flujo; los controles se manejan en la aplicacion.</text>
+  <g transform="translate(781 650)">
+    <circle cx="0" cy="0" r="12" fill="#bd653c"/><text x="0" y="4" text-anchor="middle" fill="#fff1d8" font-size="11" font-weight="700">1</text>
+    <path d="M15 0h44" stroke="#69432b"/>
+    <circle cx="74" cy="0" r="12" fill="#bd653c"/><text x="74" y="4" text-anchor="middle" fill="#fff1d8" font-size="11" font-weight="700">2</text>
+    <path d="M89 0h44" stroke="#69432b"/>
+    <circle cx="148" cy="0" r="12" fill="#bd653c"/><text x="148" y="4" text-anchor="middle" fill="#fff1d8" font-size="11" font-weight="700">3</text>
+    <path d="M163 0h44" stroke="#69432b"/>
+    <circle cx="222" cy="0" r="12" fill="#bd653c"/><text x="222" y="4" text-anchor="middle" fill="#fff1d8" font-size="11" font-weight="700">4</text>
+    <path d="M237 0h44" stroke="#69432b"/>
+    <circle cx="296" cy="0" r="12" fill="#bd653c"/><text x="296" y="4" text-anchor="middle" fill="#fff1d8" font-size="11" font-weight="700">5</text>
+  </g>
+</svg>

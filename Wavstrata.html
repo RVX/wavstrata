@@ -1193,12 +1193,14 @@
             const palette = strataPalette.map(value => new THREE.Color(value));
             const colors = new Float32Array(points.length);
             const color = new THREE.Color();
+            const pointHighlight = new THREE.Color('#f2bd58');
             let colorIndex = 0;
             for (let i = 0; i < points.length; i += 3) {
                 const elevation = (points[i + 1] - minElevation) / (maxElevation - minElevation || 1);
                 const palettePosition = elevation * (palette.length - 1);
                 const paletteIndex = Math.min(palette.length - 2, Math.floor(palettePosition));
                 color.copy(palette[paletteIndex]).lerp(palette[paletteIndex + 1], palettePosition - paletteIndex);
+                if (state.geometryKind === 'points' || state.viewMode === 'points') color.lerp(pointHighlight, 0.18);
                 colors[colorIndex++] = color.r;
                 colors[colorIndex++] = color.g;
                 colors[colorIndex++] = color.b;
@@ -1216,20 +1218,46 @@
             }
 
             if (!hasSurface || state.viewMode === 'points') {
-                geoGroup.add(new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.025, vertexColors: true, sizeAttenuation: true })));
+                geoGroup.add(createPointCloud(geometry));
+                geometry.dispose();
             } else if (state.viewMode === 'shaded') {
                 const meshMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0.04, side: THREE.DoubleSide });
                 geoGroup.add(new THREE.Mesh(geometry, meshMat));
             } else if (state.viewMode === 'wire') {
                 geoGroup.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0xe8a24b, wireframe: true })));
             } else {
-                geoGroup.add(new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.025, vertexColors: true, sizeAttenuation: true })));
+                geoGroup.add(createPointCloud(geometry));
+                geometry.dispose();
             }
 
             if (state.needsCameraFit) {
                 fitCameraToModel();
                 state.needsCameraFit = false;
             }
+        }
+
+        function createPointCloud(sourceGeometry) {
+            const sourcePositions = sourceGeometry.getAttribute('position');
+            const sourceColors = sourceGeometry.getAttribute('color');
+            const maxDisplayedPoints = 150000;
+            const stride = Math.max(1, Math.ceil(sourcePositions.count / maxDisplayedPoints));
+            const pointCount = Math.ceil(sourcePositions.count / stride);
+            const positions = new Float32Array(pointCount * 3);
+            const colors = new Float32Array(pointCount * 3);
+
+            for (let sourceIndex = 0, targetIndex = 0; sourceIndex < sourcePositions.count; sourceIndex += stride, targetIndex++) {
+                positions[targetIndex * 3] = sourcePositions.getX(sourceIndex);
+                positions[targetIndex * 3 + 1] = sourcePositions.getY(sourceIndex);
+                positions[targetIndex * 3 + 2] = sourcePositions.getZ(sourceIndex);
+                colors[targetIndex * 3] = sourceColors.getX(sourceIndex);
+                colors[targetIndex * 3 + 1] = sourceColors.getY(sourceIndex);
+                colors[targetIndex * 3 + 2] = sourceColors.getZ(sourceIndex);
+            }
+
+            const pointGeometry = new THREE.BufferGeometry();
+            pointGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            pointGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            return new THREE.Points(pointGeometry, new THREE.PointsMaterial({ size: 0.025, vertexColors: true, sizeAttenuation: true }));
         }
 
         function updateBoundingBoxVisualizer() {
@@ -1249,7 +1277,7 @@
             geometry.computeBoundingSphere();
             const bounds = geometry.boundingSphere;
             const radius = Math.max(bounds.radius, 0.05);
-            const distance = (radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.35;
+            const distance = (radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.2;
             controls.target.copy(bounds.center);
             camera.position.copy(bounds.center).add(new THREE.Vector3(distance * 0.85, distance * 0.6, distance));
             camera.near = Math.max(0.001, distance / 1000);
